@@ -98,8 +98,8 @@ def indexed_profile(trip):
 def label_stops(calls, names, start, end):
     # Include the first passenger call beyond the window, even on a long nonstop leg.
     arrivals = []
-    for code, arrival, _ in calls[1:]:
-        if arrival > start:
+    for code, arrival, departure in calls[1:]:
+        if start < arrival <= departure:
             arrivals.append([arrival, names[code]])
             if arrival >= end:
                 break

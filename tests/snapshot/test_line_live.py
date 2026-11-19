@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'build/app'))
-from line_live import traffic_window, WINDOW
+from line_live import label_stops, traffic_window, WINDOW
 from snapshot_case import case_day
 
 DAY = case_day()
@@ -15,6 +15,11 @@ def window(second):
 
 
 class CorridorLiveTest(unittest.TestCase):
+    def test_label_skips_arrival_after_departure(self):
+        calls = [('A', 81300, 81300), ('B', 172740, 87000), ('C', 96480, 97080)]
+        names = {'A': '淮南', 'B': '阜阳', 'C': '商丘南'}
+        self.assertEqual(label_stops(calls, names, 88298, 88500)['arrivals'], [[96480, '商丘南']])
+
     def test_bengbu(self):
         runs = window(42300)
         self.assertEqual(len(runs), len({(r['id'], r['day']) for r in runs}))

@@ -31,7 +31,7 @@ function showStationBoard(host, station, data) {
       liveTimeline.midnight(value.slice(0,4) + '-' + value.slice(4,6) + '-' + value.slice(6)))
   ]));
   const visits = station.trains.map(train => ({
-    train, arrival: timetableSeconds(train.arrival), departure: timetableSeconds(train.departure)
+    train, ...scheduledStopTimes(train)
   }));
   let cachedDate, lastTime;
   host.replaceChildren();
@@ -79,7 +79,7 @@ function showStationBoard(host, station, data) {
         for (let j = i; j < bases.length; j++) {
           const base = bases[j], at = base + ms;
           if (at >= start + day && ++later > limit) break;
-          events.push({train:visit.train, base, at});
+          events.push({train:visit.train, arrival:visit.arrival, base, at});
         }
       }
       events.sort((a,b) => a.at-b.at || a.train.number.localeCompare(b.train.number) ||
@@ -93,7 +93,7 @@ function showStationBoard(host, station, data) {
         first = index;
         const focused = list.contains(document.activeElement) ? document.activeElement.dataset.event : null;
         list.replaceChildren();
-        rows = events.slice(index, index + limit).map(({train, base, at}) => {
+        rows = events.slice(index, index + limit).map(({train, arrival, base, at}) => {
           const row = action(list, '', () => liveTimeline.jump(at), 'board-row');
           row.dataset.event = [train.id, base, train.sequence].join('/');
           const scheduled = liveTimeline.iso(at);
@@ -110,7 +110,6 @@ function showStationBoard(host, station, data) {
             const iso = liveTimeline.iso(ms);
             return (iso.slice(0,10) === date ? '' : iso.slice(5,10) + ' ') + iso.slice(11,16);
           };
-          const arrival = timetableSeconds(train.arrival);
           const times = field === 'departure' && arrival !== null ? clockText(base+arrival*1000) + ' 到 · ' : '';
           el('span', times + clockText(at) + (field === 'arrival' ? ' 到' : ' 开'), row, 'board-scheduled');
           timer.title = field === 'arrival' ? '距到达' : '距出发';
