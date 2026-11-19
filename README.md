@@ -26,7 +26,7 @@ python3 -m http.server 8090 --bind 127.0.0.1 --directory dist/site
 
 ## 社区纠错和 GitHub Pages
 
-提交可以审阅的[线路事实](inputs/line-facts.json)和[停站时刻修正](inputs/stop-times.json)。原始输入放在 `inputs/raw/` 时，GitHub Actions 会在 PR 和 `master` 的每次推送中从源数据重建地图和时空片。设置 **Settings → Pages → Source → GitHub Actions**，并设置仓库变量 `RAILLIVE_PUBLISH_PAGES=true` 后，`master` 构建通过即可发布。部署文件由 Actions 生成。
+提交可以审阅的[线路事实](inputs/line-facts.json)和[停站时刻修正](inputs/stop-times.json)。原始输入放在 `inputs/raw/` 时，GitHub Actions 会在 PR 和 `master` 的每次推送中从源数据重建地图和时空片。设置 **Settings → Pages → Source → GitHub Actions**后，`master` 构建通过即可发布。部署文件由 Actions 生成。
 
 在 Linux 本地运行完整编译，需 Python 3.11+ 和 Node.js：
 

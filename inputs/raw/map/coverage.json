@@ -1,0 +1,12 @@
+{
+  "bounds": [
+    69,
+    17,
+    136,
+    56
+  ],
+  "minzoom": 1,
+  "maxzoom": 8,
+  "dataset": "wtrans2-20261102",
+  "tiles": 2448
+}

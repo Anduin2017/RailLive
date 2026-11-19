@@ -1,0 +1,1 @@
+{"view":"line","data":{"name":"宜兴高速线","diagram":null,"railtype":"高速铁路","stations":[{"kid":"500ccaf6456f4fc585a4c63413ff2517","name":"宜昌北","mileage":0},{"kid":"dbcdfeae324d4f13a667952265b0d76e","name":"杨家塝所","mileage":9},{"kid":"a4b79ddda4ce4f438b746c20b21ac48e","name":"兴山","mileage":102}],"last_update":"2026","design_speed":"350 km/h","electrification":"是"}}

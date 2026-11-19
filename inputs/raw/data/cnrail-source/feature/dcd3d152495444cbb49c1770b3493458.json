@@ -1,0 +1,1 @@
+{"view":"line","data":{"name":"头门港线","lines":"1","diagram":null,"railtype":"普速铁路","stations":[{"kid":"0e1a7a6fd0234d4ea785c8d4008e853b","name":"临海东","mileage":0},{"kid":"ce63a4a6b1ea45e2893a9a653996d572","name":"杜桥","mileage":22},{"kid":"9d74451c57944717a4fa831c096b2ae9","name":"头门港","mileage":41}],"design_speed":"120 km/h","electrification":"是"}}

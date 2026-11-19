@@ -1,0 +1,1 @@
+{"view":"line","data":{"name":"阜阳西联络线","lines":"1","diagram":null,"railtype":"LINK","stations":[{"kid":"670dd99500e74f418e8e9c0d443f681f","name":"阜阳北","mileage":0},{"kid":"dd5be9722d3f42cc8381437487bb2c95","name":"颍泉","mileage":1},{"kid":"4031bfcc9836409c90ecd3d59fcec156","name":"阜阳","mileage":7}],"electrification":"是"}}

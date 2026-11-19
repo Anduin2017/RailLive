@@ -1,0 +1,1 @@
+{"view":"line","data":{"name":"南唐联络线","lines":"2","diagram":null,"railtype":"LINK","stations":[{"kid":"e083ad77d9b64f588ffa7fc58bf1239c","name":"南昌南","mileage":0},{"kid":"826dbffd5bf24ad3b1dae21f6efa96b6","name":"唐村所","mileage":17}],"design_speed":"200 km/h","electrification":"是"}}
