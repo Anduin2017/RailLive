@@ -1,0 +1,5 @@
+# Snapshot audit signatures include source bytes. Use LF on every platform.
+*.py text eol=lf
+*.js text eol=lf
+*.cjs text eol=lf
+web/vendor/* -text

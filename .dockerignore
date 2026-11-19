@@ -1,0 +1,15 @@
+**
+!LICENSE
+!THIRD_PARTY.md
+!licenses/
+!licenses/**
+!backend/
+!backend/*.py
+!web/
+!web/**
+!tools/
+!tools/prepare.py
+!tools/snapshot/
+!tools/snapshot/*.py
+!tools/snapshot/*.cjs
+**/__pycache__/

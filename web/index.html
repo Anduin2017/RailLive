@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maps.eox.at; connect-src 'self' https://tiles.maps.eox.at">
+  <title>中国铁路实况</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/mapbox-gl.css">
+  <link rel="stylesheet" href="/app.css?v=sidebar-actions2">
+  <link rel="stylesheet" href="/catalog.css?v=timeline-dock1">
+  <script defer src="/vendor/mapbox-gl.js"></script>
+  <script defer src="/station-stats.js"></script>
+  <script defer src="/train-relations.js?v=departures-all1"></script>
+  <script defer src="/train-motion.js?v=station-matching3"></script>
+  <script defer src="/train-panel.js?v=timeline-dock1"></script>
+  <script defer src="/space-time.js?v=1"></script>
+  <script defer src="/region-live.js?v=timeline-dock1"></script>
+  <script defer src="/live.js?v=timeline-dock1"></script>
+  <script defer src="/station-board.js?v=floating-board1"></script>
+  <script defer src="/station-symbols.js?v=platform-scale2"></script>
+  <script defer src="/app.js?v=sidebar-actions2"></script>
+  <script defer src="/catalog.js?v=sidebar-toggle1"></script>
+</head>
+<body>
+  <div id="map" aria-label="铁路地图"></div>
+  <div class="basemap-control">
+    <div class="basemap-switcher" role="group" aria-label="地图视图">
+      <button id="rail-basemap" type="button" aria-pressed="true" disabled>地图</button>
+      <button id="satellite-basemap" type="button" aria-pressed="false" disabled>卫星</button>
+      <button id="blank-basemap" type="button" aria-pressed="false" disabled>空白</button>
+    </div>
+    <div id="basemap-status" role="status" hidden></div>
+  </div>
+  <aside id="sidebar" class="sidebar">
+    <header>
+      <button id="sidebar-toggle" class="rail-mark" type="button" aria-label="收起面板" title="收起面板" aria-controls="sidebar" aria-expanded="true"><span aria-hidden="true">═</span></button>
+      <h1>中国铁路实况</h1>
+    </header>
+    <form id="search" role="search">
+      <label for="query">车次、车站或线路</label>
+      <div class="searchbox">
+        <input id="query" name="q" placeholder="如 G1768、北京南、京沪高速线" autocomplete="off" spellcheck="false">
+        <button type="submit">搜索</button>
+      </div>
+    </form>
+    <div id="panel" aria-live="polite"></div>
+    <footer>
+      <a class="coverage-link" href="/data/live-audit/index.html" target="_blank" rel="noopener">直播覆盖报告</a>
+      <div id="snapshot">正在读取本地数据…</div>
+      <div class="legend"><span><i class="hsr"></i>高速铁路</span><span><i class="fast-rail"></i>快速铁路</span><span><i class="regular"></i>普速铁路</span><span><i class="selected-rail"></i>所选线路</span><span><i class="selected"></i>所选车次径路</span></div>
+    </footer>
+  </aside>
+  <nav class="catalog-dock" aria-label="地图工具">
+    <button type="button" data-catalog="lines" aria-haspopup="dialog">所有线路</button>
+    <button type="button" data-catalog="trains" aria-haspopup="dialog">所有车次</button>
+    <button type="button" data-catalog="stations" aria-haspopup="dialog">所有车站</button>
+    <button id="open-map-settings" type="button" aria-haspopup="dialog" aria-controls="map-settings"><span class="catalog-icon" aria-hidden="true">⚙</span>设置</button>
+    <button id="live-toggle" type="button" aria-controls="live-clock" aria-expanded="true"><span class="catalog-icon" aria-hidden="true">◷</span>时间轴</button>
+  </nav>
+  <section id="live-clock" aria-label="全局时间轴">
+    <div class="live-heading">
+      <strong>时间轴</strong>
+      <label>北京时间 <input type="date" id="live-date" aria-label="北京时间日期"></label>
+      <input type="time" step="1" id="live-time" aria-label="北京时间时分秒">
+      <button id="live-minimize" type="button" aria-label="最小化时间轴" title="最小化时间轴">−</button>
+    </div>
+    <div id="region-status" class="region-status" hidden></div>
+    <input type="range" id="live-range" min="0" max="86399" step="1" aria-label="一天内的时刻">
+    <div class="live-ticks" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+    <div class="live-playback">
+      <div role="group" aria-label="播放方向"><button type="button" data-rate="-1">◀ 倒放</button><button type="button" data-rate="0" title="空格：暂停或继续">暂停</button><button type="button" data-rate="1">正放 ▶</button></div>
+      <select id="live-speed" aria-label="播放速度"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option><option value="32">32×</option><option value="64">64×（不推荐）</option><option value="128">128×（不推荐）</option></select>
+      <button id="live-now" type="button" aria-pressed="true" aria-label="LIVE 直播，跟随当前北京时间" title="以 1× 跟随当前北京时间">LIVE</button>
+    </div>
+  </section>
+  <dialog id="catalog" class="catalog-dialog" aria-labelledby="catalog-title">
+    <div class="catalog-frame">
+      <div class="catalog-header">
+        <h2 id="catalog-title">铁路索引</h2>
+        <nav class="catalog-tabs" aria-label="切换索引"></nav>
+        <button type="button" class="catalog-close" aria-label="关闭索引">×</button>
+      </div>
+      <div class="catalog-toolbar">
+        <div class="catalog-filters" role="group" aria-label="筛选" hidden></div>
+        <input type="search" class="catalog-search" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="catalog-scroll" tabindex="0" role="region" aria-label="索引结果">
+        <table class="catalog-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+        <p class="catalog-empty" hidden></p>
+      </div>
+      <div class="catalog-footer">
+        <span class="catalog-count" role="status"></span>
+        <div class="catalog-pagination" role="group" aria-label="分页">
+          <button type="button" data-step="-1">上一页</button>
+          <span class="catalog-page"></span>
+          <button type="button" data-step="1">下一页</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+  <dialog id="map-settings" class="catalog-dialog map-settings" aria-labelledby="map-settings-title">
+    <form method="dialog">
+      <div class="catalog-header">
+        <h2 id="map-settings-title">地图设置</h2>
+        <button type="submit" class="catalog-close" aria-label="关闭设置">×</button>
+      </div>
+      <fieldset class="map-settings-switches">
+        <legend>视野跟随</legend>
+        <label>
+          <span>点击线路时视野跟随</span>
+          <input type="checkbox" role="switch" data-follow="line" checked>
+        </label>
+        <label>
+          <span>点击车站时视野跟随</span>
+          <input type="checkbox" role="switch" data-follow="station" checked>
+        </label>
+        <label>
+          <span>点击车次时显示全程</span>
+          <input type="checkbox" role="switch" data-follow="trip" checked>
+        </label>
+        <label>
+          <span>选中列车后自动跟随</span>
+          <input type="checkbox" role="switch" data-follow="autoFollow">
+        </label>
+      </fieldset>
+      <fieldset class="map-settings-switches">
+        <legend>列车标签</legend>
+        <label><span>显示下一站</span><input type="checkbox" role="switch" data-train-label="next" checked></label>
+        <label><span>显示目的地</span><input type="checkbox" role="switch" data-train-label="destination"></label>
+      </fieldset>
+      <fieldset class="map-settings-switches">
+        <legend>车站</legend>
+        <label><span>在地图上展示发车时刻表</span><input id="map-departure-board" type="checkbox" role="switch" checked></label>
+      </fieldset>
+      <fieldset class="map-settings-switches">
+        <legend>列车配色</legend>
+        <div id="train-class-legend" class="train-color-legend"></div>
+      </fieldset>
+    </form>
+  </dialog>
+</body>
+</html>

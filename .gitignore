@@ -1,0 +1,15 @@
+# Locally supplied data, upstream downloads and compiled snapshots
+/data/
+/map/
+/space-time
+/snapshot/
+/dist/
+/build/
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+*.part
+*.building
+*.sqlite*
