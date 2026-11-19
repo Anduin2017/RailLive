@@ -1,4 +1,5 @@
-name: Build and publish RailLive
+name: RailLive
+run-name: ${{ github.event_name == 'pull_request' && 'Check RailLive changes' || 'Build and publish RailLive' }}
 
 on:
   push:
@@ -30,15 +31,16 @@ jobs:
           for file in web/*.js; do node --check "$file"; done
           python3 -m unittest discover -s tests/snapshot -p test_source_inputs.py
       - name: Build and verify the static site
+        if: github.event_name != 'pull_request'
         id: build
         env:
-          SNAPSHOT_URL: ${{ github.event_name != 'pull_request' && secrets.RAILLIVE_SNAPSHOT_URL || '' }}
+          SNAPSHOT_URL: ${{ secrets.RAILLIVE_SNAPSHOT_URL }}
           SNAPSHOT_SHA256: ${{ vars.RAILLIVE_SNAPSHOT_SHA256 }}
         shell: bash
         run: |
           source=inputs/raw
           if [[ ! -d "$source" ]]; then
-            if [[ "${GITHUB_EVENT_NAME}" == pull_request || ( -z "$SNAPSHOT_URL" && -z "$SNAPSHOT_SHA256" ) ]]; then
+            if [[ -z "$SNAPSHOT_URL" && -z "$SNAPSHOT_SHA256" ]]; then
               echo 'Full build skipped. Add the original inputs in inputs/raw or configure an input archive.' >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
