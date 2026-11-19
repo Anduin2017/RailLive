@@ -12,13 +12,13 @@ async def check(ev, wait):
         window.seek=s=>liveTimeline.jump(liveTimeline.midnight('2026-11-19')+1000*s);
         window.pressed=b=>b.getAttribute('aria-pressed')==='true';
         window.head=()=>map.getSource('selected-train')?._data.features[0];
-        window.tracking=()=>head() && pressed(cam()) && map.getPitch()>45 &&
+        window.tracking=()=>head() && pressed(cam()) && Math.abs(map.getPitch()-60)<0.01 &&
           Math.abs(map.project(head().geometry.coordinates).x-map.getCanvas().clientWidth*.5)<1 &&
           Math.abs(map.project(head().geometry.coordinates).y-map.getCanvas().clientHeight*.65)<1 &&
           Math.abs((map.getBearing()-head().properties.bearing+540)%360-180)<0.5;
         window.select1211=()=>{q('#query').value='G1211';q('#search').requestSubmit()};
         seek(10*3600+12*60);""")
-    assert await ev("!cam() && q('.basemap-switcher').children.length===3")
+    assert await ev("!cam() && map.getMaxPitch()===60 && q('.basemap-switcher').children.length===3")
     await ev("followView.autoFollow=true;select1211()")
     await wait("flat() && pressed(flat()) && !cam().hidden")
     assert await ev("map.getPitch()===0 && !pressed(cam()) && Math.abs(map.project(head().geometry.coordinates).y-map.getCanvas().clientHeight/3)<1")

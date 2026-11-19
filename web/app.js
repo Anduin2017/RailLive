@@ -869,13 +869,6 @@ function showLine(name, origin = '', station = null, focusView = followView.line
       source.target = '_blank';
       source.rel = 'noopener noreferrer';
     }
-    if (details) {
-      if (line.sourceArchived) archivedRecord(el('p', null, panel, 'meta'), 'feature', details.id);
-      const source = el('a', '中国铁路地图 · 原线路详情', el('p', null, panel, 'meta'));
-      source.href = `http://cnrail.geogv.org/zhcn/rail/${encodeURIComponent(details.id)}`;
-      source.target = '_blank';
-      source.rel = 'noopener noreferrer';
-    }
     if (line.additionalStations?.length) {
       const extra = el('details', null, panel);
       el('summary', '站卡另有接入 · ' + line.additionalStations.length + ' 站', extra);
@@ -890,7 +883,7 @@ function showLine(name, origin = '', station = null, focusView = followView.line
     }
     if (line.gtfsPoints.length) {
       const gtfs = line.gtfsPoints;
-      el('p', `原站站序：${points[0].name} → ${points.at(-1).name}。GTFS 站序：${gtfs[0].name} → ${gtfs.at(-1).name}。可切换比较。`, panel, 'meta');
+      el('p', `CNRails 站序：${points[0].name} → ${points.at(-1).name}。GTFS 站序：${gtfs[0].name} → ${gtfs.at(-1).name}。可切换比较。`, panel, 'meta');
     }
     for (const section of line.sections || []) {
       action(panel, section.label, () => showLine(section.id), 'station-filter');
@@ -932,7 +925,7 @@ function showLine(name, origin = '', station = null, focusView = followView.line
     if (choices) {
       choices.setAttribute('role', 'group');
       choices.setAttribute('aria-label', '站序来源');
-      for (const [label, items] of [['原站站序', points], ['GTFS 站序', line.gtfsPoints]]) {
+      for (const [label, items] of [['CNRails 站序', points], ['GTFS 站序', line.gtfsPoints]]) {
         const button = action(choices, `${label} ${items.length}`, () => {
           for (const option of choices.children) option.setAttribute('aria-pressed', String(option === button));
           renderPoints(items);
@@ -942,15 +935,6 @@ function showLine(name, origin = '', station = null, focusView = followView.line
     }
     renderPoints(points);
   });
-}
-
-function archivedRecord(parent, kind, identifier) {
-  const link = el('a', '查看离线原始资料', parent);
-  link.href = window.staticRailData
-    ? './records/source/' + kind + '/' + encodeURIComponent(identifier) + '.json'
-    : '/api/source/' + kind + '/' + encodeURIComponent(identifier);
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
 }
 
 function stationOverview(station, body) {

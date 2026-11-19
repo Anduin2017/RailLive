@@ -56,7 +56,7 @@ function trainMotionView(trip, host, runPicker) {
         setPanelWindow('closed');
         sidebarToggle.focus({preventScroll:true});
       }
-      placeCamera({pitch:55,zoom:enteringNavigation ? Math.max(13,map.getZoom()) : map.getZoom()});
+      placeCamera({pitch:60,zoom:enteringNavigation ? Math.max(13,map.getZoom()) : map.getZoom()});
     } else if (mode==='map') {
       placeCamera({...previousView,pitch:0});
     } else if (mode==='static' && wasNavigation) {

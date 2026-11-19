@@ -15,9 +15,11 @@ const catalogViews = {
     columns: [
       ['name', '车次'], ['origin', '始发站'], ['destination', '终到站'], ['departure', '始发时间', true],
       ['arrival', '终到时间', true], ['duration', '全程耗时', true], ['stops', '停靠站', true],
-      ['distanceKm', '里程', true], ['averageKmh', '表速', true], ['peakKmh', '最高速度', true]
+      ['distanceKm', '里程', true],
+      ['averageKmh', '表速', true, '全程里程除以始发到终到的计划耗时，停站时间也算在内。'],
+      ['peakKmh', '最高速度', true, '根据时刻表和推演径路估算的全程速度峰值，可能与实际运行速度有出入。']
     ],
-    note: '按推演径路估算。表速 = 全程里程 ÷ 全程耗时（含停站）。最高速度取全程推演峰值。'
+    note: '里程按推演径路估算。'
   },
   stations: {
     title: '所有车站', search: '搜索站名，如 石家', open: id => showStation(id, true), sort: 'total', order: 'desc',
@@ -36,6 +38,10 @@ function setupCatalog() {
   const filters = dialog.querySelector('.catalog-filters');
   const scroll = dialog.querySelector('.catalog-scroll');
   const head = dialog.querySelector('thead');
+  const help = el('div', null, dialog, 'catalog-column-help');
+  help.id = 'catalog-column-help';
+  help.hidden = true;
+  help.setAttribute('role', 'status');
   const body = dialog.querySelector('tbody');
   const empty = dialog.querySelector('.catalog-empty');
   const count = dialog.querySelector('.catalog-count');
@@ -53,6 +59,43 @@ function setupCatalog() {
   let active;
   let controller;
   let timer;
+  let helpButton, helpPinned, helpTimer;
+
+  function hideHelp() {
+    clearTimeout(helpTimer);
+    helpButton?.setAttribute('aria-expanded', 'false');
+    helpButton = null;
+    helpPinned = false;
+    help.hidden = true;
+  }
+
+  function showHelp(button, label, explanation, pinned) {
+    hideHelp();
+    helpButton = button;
+    helpPinned = pinned;
+    button.setAttribute('aria-expanded', 'true');
+    help.textContent = label + ' · ' + explanation;
+    help.hidden = false;
+    const anchor = button.getBoundingClientRect();
+    const frame = dialog.getBoundingClientRect();
+    const left = anchor.left + anchor.width / 2 - frame.left - help.offsetWidth / 2;
+    help.style.left = Math.max(8, Math.min(left, dialog.clientWidth - help.offsetWidth - 8)) + 'px';
+    const below = anchor.bottom - frame.top + 4;
+    help.style.top = (below + help.offsetHeight <= dialog.clientHeight - 8
+      ? below : Math.max(8, anchor.top - frame.top - help.offsetHeight - 4)) + 'px';
+  }
+
+  function scheduleHideHelp() {
+    if (!helpPinned) helpTimer = setTimeout(hideHelp, 140);
+  }
+
+  help.onpointerenter = () => clearTimeout(helpTimer);
+  help.onpointerleave = scheduleHideHelp;
+  scroll.addEventListener('scroll', hideHelp);
+  window.addEventListener('resize', hideHelp);
+  dialog.addEventListener('pointerdown', event => {
+    if (!event.target.closest('.catalog-help-button, .catalog-column-help')) hideHelp();
+  });
 
   for (const button of dock) {
     const kind = button.dataset.catalog;
@@ -69,6 +112,7 @@ function setupCatalog() {
   }
 
   function close() {
+    hideHelp();
     stopRequest();
     states[active].scroll = scroll.scrollTop;
     dialog.close();
@@ -77,7 +121,8 @@ function setupCatalog() {
   dialog.querySelector('.catalog-close').onclick = close;
   dialog.addEventListener('cancel', event => {
     event.preventDefault();
-    close();
+    if (helpButton) hideHelp();
+    else close();
   });
   dialog.addEventListener('click', event => {
     if (event.target === dialog) close();
@@ -95,6 +140,7 @@ function setupCatalog() {
   }
 
   function open(kind) {
+    hideHelp();
     if (dialog.open) states[active].scroll = scroll.scrollTop;
     active = kind;
     dialog.dataset.view = kind;
@@ -129,17 +175,33 @@ function setupCatalog() {
 
     head.replaceChildren();
     const headers = el('tr', null, head);
-    for (const [field, label, numeric] of view.columns) {
+    for (const [field, label, numeric, explanation] of view.columns) {
       const th = el('th', null, headers, numeric ? 'catalog-number' : '');
       th.scope = 'col';
       th.dataset.field = field;
-      const button = action(th, label, () => {
+      const group = explanation ? el('div', null, th, 'catalog-header-tools') : th;
+      const button = action(group, label, () => {
+        hideHelp();
         state.order = state.sort === field ? (state.order === 'asc' ? 'desc' : 'asc') : (numeric ? 'desc' : 'asc');
         state.sort = field;
         setSortHeader();
         firstPage();
-      });
+      }, 'catalog-sort-button');
       el('span', '↕', button, 'catalog-sort-arrow').setAttribute('aria-hidden', 'true');
+      if (explanation) {
+        const info = action(group, null, () => {
+          if (helpButton === info && helpPinned) hideHelp();
+          else showHelp(info, label, explanation, true);
+        }, 'catalog-help-button');
+        el('span', '?', info).setAttribute('aria-hidden', 'true');
+        info.setAttribute('aria-label', label + '说明');
+        info.setAttribute('aria-controls', help.id);
+        info.setAttribute('aria-expanded', 'false');
+        info.onpointerenter = event => {
+          if (event.pointerType === 'mouse' && !helpPinned) showHelp(info, label, explanation, false);
+        };
+        info.onpointerleave = scheduleHideHelp;
+      }
     }
     setSortHeader();
     if (!dialog.open) {
@@ -155,7 +217,7 @@ function setupCatalog() {
       const sorted = state.sort === th.dataset.field;
       if (sorted) th.setAttribute('aria-sort', state.order === 'asc' ? 'ascending' : 'descending');
       else th.removeAttribute('aria-sort');
-      th.querySelector('span').textContent = sorted ? (state.order === 'asc' ? '↑' : '↓') : '↕';
+      th.querySelector('.catalog-sort-arrow').textContent = sorted ? (state.order === 'asc' ? '↑' : '↓') : '↕';
     }
   }
 

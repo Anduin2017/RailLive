@@ -29,12 +29,18 @@
 .catalog-table thead{position:sticky;top:0;z-index:1;background:#e7f0e9;color:#284337}
 .catalog-table th,.catalog-table td{padding:4px 9px;vertical-align:middle;white-space:nowrap}
 .catalog-table th{padding:0 4px;border-bottom-color:#c7d9cd}
-.catalog-table th button{display:flex;justify-content:space-between;align-items:center;gap:5px;width:100%;padding:7px 5px;background:none;border-color:transparent;color:inherit;text-align:left;font-size:12px;font-weight:650}
-.catalog-table th button:hover,.catalog-table th[aria-sort] button{background:#d4e8db}
+.catalog-sort-button{display:flex;justify-content:space-between;align-items:center;gap:5px;width:100%;padding:7px 5px;background:none;border-color:transparent;color:inherit;text-align:left;font-size:12px;font-weight:650}
+.catalog-sort-button:hover,.catalog-table th[aria-sort] .catalog-sort-button{background:#d4e8db}
 .catalog-sort-arrow{color:#627d70;font-size:11px}
 .catalog-table th[aria-sort] .catalog-sort-arrow{color:#1c533f}
 .catalog-table .catalog-number{text-align:right}
-.catalog-table th.catalog-number button{justify-content:flex-end}
+.catalog-table th.catalog-number .catalog-sort-button{justify-content:flex-end}
+.catalog-header-tools{display:flex;align-items:center}
+.catalog-help-button{display:grid;place-items:center;flex:none;width:28px;height:32px;padding:0;border:0;background:transparent;color:#1c533f;font-size:11px;font-weight:700}
+.catalog-help-button::before{content:"";grid-area:1/1;width:14px;height:14px;border:1px solid currentColor;border-radius:50%}
+.catalog-help-button span{grid-area:1/1}
+.catalog-help-button:hover,.catalog-help-button[aria-expanded=true]{background:#d4e8db}
+.catalog-column-help{position:absolute;z-index:2;width:max-content;max-width:min(248px,calc(100% - 16px));padding:8px 10px;border:1px solid #b6cbbd;border-radius:8px;background:#fdfdf9;color:#244439;box-shadow:0 3px 12px #1c372838;font-size:13px;line-height:1.5}
 .catalog-table tbody tr:nth-child(even){background:#f3f7f4}
 .catalog-table tbody tr:hover,.catalog-table tbody tr:focus-within{background:#e6f0e8}
 .catalog-table td{line-height:1.4}
