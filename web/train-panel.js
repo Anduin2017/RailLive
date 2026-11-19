@@ -1,8 +1,9 @@
 'use strict';
 
-function scheduledStopTimes(stop) {
+function scheduledStopTimes(stop, terminal) {
   const arrival = timetableSeconds(stop.arrival), departure = timetableSeconds(stop.departure);
-  return {arrival: arrival !== null && departure !== null && arrival > departure ? null : arrival, departure};
+  const invalid = !terminal && arrival !== null && departure !== null && arrival > departure;
+  return {arrival: invalid ? null : arrival, departure};
 }
 
 function trainMotionView(trip, host, runPicker) {
@@ -10,8 +11,8 @@ function trainMotionView(trip, host, runPicker) {
   let lastLeg, departureAt, captionSecond, captionSpeed;
   let cameraMode='static', heading, previousView, lastTrack;
   host.className='journey';
-  const calls=trip.stops.map(stop=>{
-    const {arrival, departure} = scheduledStopTimes(stop);
+  const calls=trip.stops.map((stop,index)=>{
+    const {arrival, departure} = scheduledStopTimes(stop, index === trip.stops.length - 1);
     return {...stop, arrive: arrival, depart: departure};
   });
   const routeLabel=[trip.origin || calls[0]?.name, trip.destination || calls.at(-1)?.name]

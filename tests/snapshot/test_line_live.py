@@ -16,7 +16,7 @@ def window(second):
 
 class CorridorLiveTest(unittest.TestCase):
     def test_label_skips_arrival_after_departure(self):
-        calls = [('A', 81300, 81300), ('B', 172740, 87000), ('C', 96480, 97080)]
+        calls = [('A', 81300, 81300), ('B', 172740, 87000), ('C', 96480, 96000)]
         names = {'A': '淮南', 'B': '阜阳', 'C': '商丘南'}
         self.assertEqual(label_stops(calls, names, 88298, 88500)['arrivals'], [[96480, '商丘南']])
 

@@ -190,8 +190,8 @@ const liveTimeline = (() => {
     }
     runs.sort((a,b)=>a.start-b.start);
     const overlapping=runs.some((run,i)=>i>0 && runs[i-1].end>run.start);
-    const calls = trip.stops.map(stop => ({
-      name: stop.name, ...scheduledStopTimes(stop)
+    const calls = trip.stops.map((stop, index) => ({
+      name: stop.name, ...scheduledStopTimes(stop, index === trip.stops.length - 1)
     })).filter(stop => stop.arrival !== null && stop.departure !== null);
     detachTrip();
     const locked = runs.find(run => iso(run.serviceMidnight).slice(0,10) === serviceDate);

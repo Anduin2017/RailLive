@@ -31,7 +31,7 @@ function showStationBoard(host, station, data) {
       liveTimeline.midnight(value.slice(0,4) + '-' + value.slice(4,6) + '-' + value.slice(6)))
   ]));
   const visits = station.trains.map(train => ({
-    train, ...scheduledStopTimes(train)
+    train, ...scheduledStopTimes(train, train.kind === 'terminal')
   }));
   let cachedDate, lastTime;
   host.replaceChildren();
