@@ -24,6 +24,27 @@ python3 -m http.server 8090 --bind 127.0.0.1 --directory dist/site
 
 更新时建议把新站上传到独立版本目录，再切换入口；也可以在同一目录先上传数据文件，最后更新清单和网页。按内容散列命名的 `records/objects/` 和带版本号的时空片目录可长期缓存。`index.html`、`records/index.json`、`space-time/manifest.json` 及其他同名可变资源应允许重新验证。单次发布含大量小文件，请确认托管服务的文件数限额。用于公开 CDN 分发的数据与地图许可见[第三方说明](THIRD_PARTY.md)。
 
+## GitHub Pages 自动部署
+
+GitHub 的 `master` 收到提交后会运行 [Pages 工作流](.github/workflows/pages.yml)，也可在 Actions 页面手动运行。构建快照从 HTTPS 下载，校验后才解包。静态产物通过 Pages artifact 交给发布任务。
+
+在有运行快照的机器上打包。以下命令使用「迁移当前快照」一节导出的 `dist/current/`，归档根目录应直接包含 `data/`、`map/`、`space-time/`。
+
+```sh
+tar -C dist/current -czf dist/raillive-snapshot.tar.gz .
+sha256sum dist/raillive-snapshot.tar.gz
+```
+
+把归档放在 Actions runner 可访问的 HTTPS 存储中。GitHub 仓库的 **Settings → Secrets and variables → Actions** 中配置：
+
+| 配置 | 所需值 |
+| --- | --- |
+| Secret `RAILLIVE_SNAPSHOT_URL` | 归档的 HTTPS 下载地址，可用带有效期的签名 URL |
+| Variable `RAILLIVE_SNAPSHOT_SHA256` | 对应归档的 64 位小写 SHA-256 |
+| Variable `RAILLIVE_PUBLISH_PAGES` | 公开发布已获授权且 **Settings → Pages → Source** 设为 **GitHub Actions** 后，填写 `true` |
+
+快照 URL 和校验值都为空时，工作流执行源码检查。配置快照后，工作流将编译产物并运行快照回归、静态记录和时空片对账。配置发布变量后，校验通过的产物会上传到 GitHub 并自动部署。更改快照参数后，在 Actions 手动重跑 `master`。公开部署前请核对[第三方数据许可](THIRD_PARTY.md)。
+
 ## Docker 运行
 
 镜像包含 Python 服务、网页和地图渲染库。运行需要一份与代码兼容的独立快照，包含 `data/`、`map/` 和 `space-time/`。已有快照可按下节迁移。当前仓库没有提供整套数据的公共下载地址。仅有 GTFS 压缩包还需补齐底图、站线资料并构建索引。[快照维护说明](docs/snapshot.md)
