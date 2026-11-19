@@ -42,6 +42,33 @@ def line_stations(lines):
             yield line, position, entry[1], entry[3][1:] if coded else None, bureau, region, mileage
 
 
+def repair_overnight_arrivals(db):
+    """Remove a duplicate day offset only when it restores local stop order."""
+    day = 24 * 60 * 60
+
+    def seconds(value):
+        if not value:
+            return None
+        hours, minutes, seconds = map(int, value.split(':'))
+        return hours * 3600 + minutes * 60 + seconds
+
+    updates = []
+    for trip, seq, arrival, departure, previous, following in db.execute("""
+        SELECT trip,seq,arrival,departure,lag(departure) OVER calls,lead(arrival) OVER calls
+        FROM times WINDOW calls AS (PARTITION BY trip ORDER BY seq)
+    """):
+        arrived, departed, previous, following = map(seconds, (arrival, departure, previous, following))
+        if None in (arrived, departed, previous, following) or arrived <= departed:
+            continue
+        corrected = arrived - day
+        if corrected - day <= previous < corrected <= departed < following:
+            hours, remainder = divmod(corrected, 3600)
+            minutes, second = divmod(remainder, 60)
+            updates.append((f'{hours:02d}:{minutes:02d}:{second:02d}', trip, seq))
+    db.executemany('UPDATE times SET arrival=? WHERE trip=? AND seq=?', updates)
+    return len(updates)
+
+
 def merge_station_aliases(db):
     # The publisher assigns coordinates by name. Several codes sharing those
     # coordinates only count as one physical station with independent evidence.
@@ -97,6 +124,8 @@ def main():
         insert(db, archive, "trips", ["trip_id", "trip_short_name", "service_id", "shape_id"])
         insert(db, archive, "stop_times", ["trip_id", "stop_id", "stop_sequence",
                                          "arrival_time", "departure_time"], "times")
+        corrected_arrivals = repair_overnight_arrivals(db)
+        print("Corrected overnight arrivals:", corrected_arrivals)
         insert(db, archive, "calendar_dates", ["service_id", "date", "exception_type"], "dates")
         db.executemany("INSERT INTO shapes VALUES (?,?)", geometry(archive))
         db.executemany("INSERT INTO stop_pinyin VALUES (?,?)", (
@@ -118,6 +147,7 @@ def main():
         from shape_excursions import repair_shapes
         print("Corrected within-leg excursions:", repair_shapes(db))
         meta = next(rows(archive, "feed_info.txt"))
+        meta["overnightArrivalsCorrected"] = corrected_arrivals
         for table in ("trips", "stops", "times", "shapes"):
             meta[table] = db.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         meta["numbers"] = db.execute("SELECT count(DISTINCT number) FROM trips").fetchone()[0]
