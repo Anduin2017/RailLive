@@ -1,7 +1,6 @@
 """Reconcile every archived station-card edge, direction and line stop against served data."""
 from collections import Counter, defaultdict
-import csv
-import io
+from contextlib import closing
 import zipfile
 import hashlib
 import gzip
@@ -10,6 +9,7 @@ import sqlite3
 
 from collect_cnrail import CACHE, ID, references, tile_ids
 from gtfs_coordinates import classify
+from import_gtfs import insert, repair_overnight_arrivals
 from railway_graph import ROOT, SNAPSHOT, snapshot_hash, audited_files
 from server import GRAPH, DB, station_details, line_details, Handler, RAIL_SELECTION, query_catalog
 
@@ -119,13 +119,19 @@ def main():
             assert any(v.get("tele_code")==target for v in GRAPH.views[kid]),(alias,target,kid)
         times = {(r["trip"],r["seq"]):(r["station"],r["arrival"],r["departure"])
                  for r in db.execute("SELECT * FROM times")}
-        with zipfile.ZipFile(ROOT/'data/output_gtfs.zip') as archive, archive.open('stop_times.txt') as raw:
-            for visit in csv.DictReader(io.TextIOWrapper(raw,encoding='utf-8-sig')):
-                key = visit["trip_id"],int(visit["stop_sequence"])
-                stop = visit["stop_id"]
+        with zipfile.ZipFile(ROOT/'data/output_gtfs.zip') as archive, closing(sqlite3.connect(':memory:')) as expected:
+            schema = 'CREATE TABLE times(trip TEXT, station TEXT, seq INTEGER, arrival TEXT, departure TEXT)'
+            expected.execute(schema)
+            insert(expected, archive, 'stop_times', ['trip_id', 'stop_id', 'stop_sequence',
+                                                     'arrival_time', 'departure_time'], 'times')
+            repairs = json.loads(db.execute('SELECT json FROM metadata').fetchone()[0]).get('overnightArrivalsCorrected')
+            if repairs is not None:
+                assert repair_overnight_arrivals(expected) == repairs
+            for trip, stop, seq, arrival, departure in expected.execute('SELECT * FROM times'):
+                key = trip, seq
                 if stop in aliases:
                     assert source_codes.pop(key)==stop,key
-                assert times.pop(key)==(aliases.get(stop,stop),visit["arrival_time"],visit["departure_time"]),key
+                assert times.pop(key)==(aliases.get(stop,stop),arrival,departure),key
         assert not times and not source_codes
         for key, name in (("stations","车站"),("lines","线路")):
             page = query_catalog(key,{})

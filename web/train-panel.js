@@ -2,7 +2,7 @@
 
 function scheduledStopTimes(stop) {
   const arrival = timetableSeconds(stop.arrival), departure = timetableSeconds(stop.departure);
-  return {arrival: departure !== null && arrival > departure ? null : arrival, departure};
+  return {arrival: arrival !== null && departure !== null && arrival > departure ? null : arrival, departure};
 }
 
 function trainMotionView(trip, host, runPicker) {

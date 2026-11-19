@@ -124,7 +124,8 @@ def main():
         insert(db, archive, "trips", ["trip_id", "trip_short_name", "service_id", "shape_id"])
         insert(db, archive, "stop_times", ["trip_id", "stop_id", "stop_sequence",
                                          "arrival_time", "departure_time"], "times")
-        print("Corrected overnight arrivals:", repair_overnight_arrivals(db))
+        corrected_arrivals = repair_overnight_arrivals(db)
+        print("Corrected overnight arrivals:", corrected_arrivals)
         insert(db, archive, "calendar_dates", ["service_id", "date", "exception_type"], "dates")
         db.executemany("INSERT INTO shapes VALUES (?,?)", geometry(archive))
         db.executemany("INSERT INTO stop_pinyin VALUES (?,?)", (
@@ -146,6 +147,7 @@ def main():
         from shape_excursions import repair_shapes
         print("Corrected within-leg excursions:", repair_shapes(db))
         meta = next(rows(archive, "feed_info.txt"))
+        meta["overnightArrivalsCorrected"] = corrected_arrivals
         for table in ("trips", "stops", "times", "shapes"):
             meta[table] = db.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         meta["numbers"] = db.execute("SELECT count(DISTINCT number) FROM trips").fetchone()[0]
