@@ -11,7 +11,7 @@ PUBLIC_MAP = (
 DATA = (
     'trains.sqlite', 'relations.sqlite', 'region.sqlite', 'line-facts.json',
     'cnrail-graph.json.gz', 'cnrail-lines.json', 'cnrail-audit.json',
-    'GTFS-LICENSE.txt', 'live-audit',
+    'GTFS-LICENSE.txt',
 )
 MAP = (*PUBLIC_MAP, 'coverage.json', 'rail-selection.json', 'rail-tracks.json.gz')
 
@@ -26,8 +26,7 @@ def runtime_files(root):
     if not re.fullmatch(r'[0-9a-f]{20}', version):
         raise ValueError('space-time/manifest.json 中的版本号无效')
     generation = manifest.parent / version
-    for path in (generation / 'catalog.gz', Path('map/station-symbols/index.json'),
-                 Path('data/live-audit/index.html')):
+    for path in (generation / 'catalog.gz', Path('map/station-symbols/index.json')):
         if not (root / path).is_file():
             raise ValueError(f'快照不完整，缺少 {path}')
     return [*paths, manifest, generation]

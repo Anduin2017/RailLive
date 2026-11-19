@@ -34,7 +34,10 @@ def prepare(output, snapshot):
         (public / name).mkdir(exist_ok=True)
     for name in PUBLIC_MAP:
         link('../../map/' + name, public / 'map' / name)
-    link('../../data/live-audit', public / 'data/live-audit')
+    # Clean up the report link left by older builds.
+    if (public / 'data/live-audit').is_symlink():
+        (public / 'data/live-audit').unlink()
+    (public / 'audit.css').unlink(missing_ok=True)
     link('../space-time', public / 'space-time')
 
 

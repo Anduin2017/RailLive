@@ -93,10 +93,6 @@ def copy_assets(snapshot, site):
     version = json.loads(manifest.read_bytes())['version']
     shutil.copytree(manifest.parent / version, site / 'space-time' / version)
     shutil.copy2(manifest, site / 'space-time/manifest.json')
-    audit = site / 'data/live-audit'
-    shutil.copytree(snapshot / 'data/live-audit', audit)
-    report = audit / 'index.html'
-    report.write_text(report.read_text().replace('href="/audit.css"', 'href="../../audit.css"').replace('href="/"', 'href="../../"'))
     shutil.copy2(ROOT / 'LICENSE', site)
     notices = (ROOT / 'THIRD_PARTY.md').read_text().replace('web/vendor/', 'vendor/')
     (site / 'THIRD_PARTY.md').write_text(notices)

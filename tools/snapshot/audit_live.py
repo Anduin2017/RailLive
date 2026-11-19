@@ -5,7 +5,6 @@ from contextlib import closing
 import csv
 from datetime import date
 from functools import lru_cache
-from html import escape
 import json
 import sqlite3
 
@@ -207,18 +206,6 @@ def generate(directory):
     report=dict(snapshot=version,firstDay=stamp(min(daily)),lastDay=stamp(max(daily)),
                 days=len(daily),trips={k:totals[k] for k in [*FIELDS,"推算径路","补全后可推演","补全始发区间","缺少径路","到发矛盾班次"]},orders=orders,corridors=lines,display=dict(departures=departures,estimated=estimates))
     (directory/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
-    headline=''.join(f'<li>{k}：{totals[k]:,} 个班次模板</li>' for k in FIELDS)
-    details=''.join(f'<li>{escape(l["name"])}</li>' for l in lines)
-    (directory/'index.html').write_text(f"""<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>直播覆盖报告</title><link rel="stylesheet" href="/audit.css"><main><a href="/">返回地图</a><h1>直播覆盖报告</h1>
-<p>{version} 快照 · 北京时间 {report['firstDay']} 至 {report['lastDay']} · {len(daily)} 天</p>
-<h2>地图发车展示</h2><p>{departures:,} 个停站间发车区间中，{departures-sum(estimates.values()):,} 个沿用原运动曲线。其余按区间显示{'、'.join(k+' '+format(v,',')+' 个' for k,v in estimates.items())}。底图推测沿本地轨道绘制，同类车径路推测借用同类车次的原始轨迹，底图接轨推测沿底图铁路并在局部接续断点，琼州海峡铁路轮渡按两端铁路港口推演。</p>
-<h2>具备径路和运动曲线的班次</h2><ul>{headline}</ul><p>按每个相邻停站区间核验径路锚点、到发时间与运动曲线。其中 {totals['推算径路']:,} 个模板含参考车次推算的径路，{totals['补全始发区间']:,} 个可以从始发站驶出。另有 {totals['缺少径路']:,} 个缺少径路，检出到发时间矛盾的模板有 {totals['到发矛盾班次']:,} 个。</p>
-<a download href="trips.csv">下载班次明细 CSV</a> · <a download href="days.csv">下载逐日扫描 CSV</a>
-<h2>区间车序</h2><p>扫描同向先后访问两个共同车站的计划班次，统计严格后发先到；时刻矛盾班次、同分钟并列和重复访问的歧义站点不参与判定。
-共 {orders.get('候选越行',0):,} 组有候选站，{orders.get('换序地点待定',0):,} 组地点待定。相同班次模板、区间和始发日偏移合并列出，适用日期随行保存。</p>
-<a download href="orders.csv">下载换序证据 CSV</a><p>秒数相对先发列车服务日零时。逐日换序按后发列车离开上游站的日期计数。候选站基于同向共线、单次换序和公布停车窗口推演。</p>
-<h2>已校验的线路车流数据</h2><ul>{details}</ul><a href="summary.json">查看机器可读摘要</a></main></html>""")
     print(json.dumps(report,ensure_ascii=False),flush=True)
 
 
@@ -235,5 +222,6 @@ if __name__=='__main__':
     with TemporaryDirectory(dir=OUT.parent) as staging:
         directory=Path(staging)
         generate(directory)
-        for name in ('trips.csv','orders.csv','days.csv','summary.json','index.html'):
+        for name in ('trips.csv','orders.csv','days.csv','summary.json'):
             (directory/name).replace(OUT/name)
+        (OUT/'index.html').unlink(missing_ok=True)

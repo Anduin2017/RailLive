@@ -62,4 +62,4 @@ python3 -m unittest discover -s tests/snapshot -p 'test_*.py'
 python3 tests/snapshot/verify_space_tiles.py
 ```
 
-回归覆盖跨日班次、同线车序、路径补配与到发时刻。全量对账会解压运行片和几何块，请预留数分钟。换快照后可查看网页页脚的直播覆盖报告。完整运行快照的导出方式见 [README](../README.md)。
+回归覆盖跨日班次、同线车序、路径补配与到发时刻。全量对账会解压运行片和几何块，请预留数分钟。扫描结果写入快照的 `data/live-audit/` 目录，包含 JSON 摘要和 CSV 明细。完整运行快照的导出方式见 [README](../README.md)。
