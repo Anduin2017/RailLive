@@ -1,0 +1,95 @@
+{
+  "沪宁城际线": {
+    "sourceId": "eb592b7be42a454b9a70d40d6a6cc46f",
+    "aliases": [
+      "沪宁高速线"
+    ],
+    "identityEvidence": "南京和苏州站卡指向同一原站线路；与 GTFS 配套沪宁高速线 22 个站点的顺序一致，线路所名称按同一规则规范化。"
+  },
+  "京沪高速线": {
+    "designSpeed": "350 公里/小时",
+    "sourceName": "京沪高速铁路股份有限公司 2025 年年度报告",
+    "sourceUrl": "https://static.cninfo.com.cn/finalpage/2026-04-21/1225132016.PDF"
+  },
+  "沪宁沿江高速线": {
+    "designSpeed": "350 公里/小时",
+    "sourceName": "江苏省委新闻网 · 沪宁沿江高铁联调联试",
+    "sourceUrl": "https://www.zgjssw.gov.cn/yaowen/202307/t20230704_7997409.shtml"
+  },
+  "石太客专线": {
+    "railType": "高速铁路",
+    "sourceName": "中国铁路北京局集团 · 石太客专工程招标公告",
+    "sourceUrl": "https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202406/6325494571872.pdf"
+  },
+  "京哈高速线": {
+    "railType": "高速铁路",
+    "designSpeed": "350 公里/小时",
+    "lengthKm": 1198,
+    "sections": {
+      "京沈段": "京哈高速线京沈段",
+      "沈哈段": "京哈高速线沈哈段"
+    },
+    "sourceName": "北京市人民政府 · 京哈高铁全线开通及技术数据",
+    "sourceUrl": "https://www.beijing.gov.cn/ywdt/gqrd/202101/t20210122_2229607.html"
+  },
+  "京哈高速线京沈段": {
+    "sourceId": "e4dad3ca665049309c691fbf594ca1ed",
+    "railType": "高速铁路",
+    "designSpeed": "350 公里/小时",
+    "sourceName": "生态环境部 · 京沈客专技术标准",
+    "sourceUrl": "https://www.mee.gov.cn/ywgz/hjyxpj/jsxmhjyxpj/nscxmgs/201605/t20160522_339517.shtml"
+  },
+  "京哈高速线沈哈段": {
+    "sourceId": "bfa975ee08cb4c9aa13643e81293630b",
+    "railType": "高速铁路",
+    "sourceName": "承德市人民政府 · 京哈高铁线路及区段说明",
+    "sourceUrl": "https://www.chengde.gov.cn/art/2021/1/22/art_400_682055.html"
+  },
+  "哈牡客专线": {
+    "railType": "高速铁路",
+    "designSpeed": "250 公里/小时",
+    "sourceName": "国家发展改革委 · 哈牡客专可行性研究报告批复",
+    "sourceUrl": "https://zfxxgk.ndrc.gov.cn/web/iteminfo.jsp?id=2049"
+  },
+  "哈齐客专线": {
+    "railType": "高速铁路",
+    "designSpeed": "250 公里/小时",
+    "sourceName": "国家铁路局 · 新建哈齐客专项目简介",
+    "sourceUrl": "https://www.nra.gov.cn/ztzl/hy/gcjs2023/xmjj/hqkz/201509/t20150911_344152.shtml"
+  },
+  "哈佳线": {
+    "railType": "快速铁路",
+    "designSpeed": "200 公里/小时",
+    "sourceName": "国家发展改革委 · 哈佳铁路联调联试及技术标准",
+    "sourceUrl": "https://www.ndrc.gov.cn/fggz/zcssfz/dffz/201806/t20180622_1147836.html"
+  },
+  "沈佳高速线牡佳段": {
+    "railType": "高速铁路",
+    "designSpeed": "250 公里/小时",
+    "sourceName": "黑龙江省人民政府 · 牡佳高铁开通及设计标准",
+    "sourceUrl": "https://www.hlj.gov.cn/hlj/c107858/202112/c00_30596232.shtml"
+  },
+  "徐连高速线": {
+    "sourceId": "fe8e18597d124c26869e8b32d95d132a",
+    "identityEvidence": "新沂南站卡的线路 ID 指向连徐客运线，站序与徐连高速线相符。",
+    "aliases": [
+      "连徐客运线",
+      "徐连高铁"
+    ],
+    "railType": "高速铁路",
+    "designSpeed": "350 公里/小时",
+    "sourceName": "江苏省铁路集团 · 2025 年债券募集说明书（第 48 页）",
+    "sourceUrl": "https://static.sse.com.cn/bond/bridge2/disclosure/announcement/c/202510/8d5b9a_20251029_I11C.pdf"
+  },
+  "广深港高速线": {
+    "designSpeed": "广深段 350、深港段 250 公里/小时",
+    "sourceName": "广东省委港澳工作办公室 · 广深港高铁简介",
+    "sourceUrl": "https://www.gdhmo.gov.cn/kjjcssjs/content/mpost_54215.html"
+  },
+  "宁蓉线": {
+    "sections": {
+      "宁渝段": "宁蓉线宁渝段",
+      "成渝段": "宁蓉线成渝段"
+    }
+  }
+}

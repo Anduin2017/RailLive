@@ -24,26 +24,19 @@ python3 -m http.server 8090 --bind 127.0.0.1 --directory dist/site
 
 更新时建议把新站上传到独立版本目录，再切换入口；也可以在同一目录先上传数据文件，最后更新清单和网页。按内容散列命名的 `records/objects/` 和带版本号的时空片目录可长期缓存。`index.html`、`records/index.json`、`space-time/manifest.json` 及其他同名可变资源应允许重新验证。单次发布含大量小文件，请确认托管服务的文件数限额。用于公开 CDN 分发的数据与地图许可见[第三方说明](THIRD_PARTY.md)。
 
-## GitHub Pages 自动部署
+## 社区纠错和 GitHub Pages
 
-GitHub 的 `master` 收到提交后会运行 [Pages 工作流](.github/workflows/pages.yml)，也可在 Actions 页面手动运行。构建快照从 HTTPS 下载，校验后才解包。静态产物通过 Pages artifact 交给发布任务。
+提交可以审阅的[线路事实](inputs/line-facts.json)和[停站时刻修正](inputs/stop-times.json)。原始输入放在 `inputs/raw/` 时，GitHub Actions 会在 PR 和 `master` 的每次推送中从源数据重建地图和时空片。设置 **Settings → Pages → Source → GitHub Actions**，并设置仓库变量 `RAILLIVE_PUBLISH_PAGES=true` 后，`master` 构建通过即可发布。部署文件由 Actions 生成。
 
-在有运行快照的机器上打包。以下命令使用「迁移当前快照」一节导出的 `dist/current/`，归档根目录应直接包含 `data/`、`map/`、`space-time/`。
+在 Linux 本地运行完整编译，需 Python 3.11+ 和 Node.js：
 
 ```sh
-tar -C dist/current -czf dist/raillive-snapshot.tar.gz .
-sha256sum dist/raillive-snapshot.tar.gz
+python3 tools/build_from_source.py --source /path/to/original-inputs
 ```
 
-把归档放在 Actions runner 可访问的 HTTPS 存储中。GitHub 仓库的 **Settings → Secrets and variables → Actions** 中配置：
+该命令读取原始输入，生成 `build/snapshot/` 和 `dist/site/`。使用 `--snapshot` 和 `--output` 可指定新的输出目录。原始文件清单与 PR 格式见[构建输入说明](inputs/README.md)。
 
-| 配置 | 所需值 |
-| --- | --- |
-| Secret `RAILLIVE_SNAPSHOT_URL` | 归档的 HTTPS 下载地址，可用带有效期的签名 URL |
-| Variable `RAILLIVE_SNAPSHOT_SHA256` | 对应归档的 64 位小写 SHA-256 |
-| Variable `RAILLIVE_PUBLISH_PAGES` | 公开发布已获授权且 **Settings → Pages → Source** 设为 **GitHub Actions** 后，填写 `true` |
-
-快照 URL 和校验值都为空时，工作流执行源码检查。配置快照后，工作流将编译产物并运行快照回归、静态记录和时空片对账。配置发布变量后，校验通过的产物会上传到 GitHub 并自动部署。更改快照参数后，在 Actions 手动重跑 `master`。公开部署前请核对[第三方数据许可](THIRD_PARTY.md)。
+如果原始资源还在 Git 之外，可将同一输入目录归档并在 GitHub 设置 `RAILLIVE_SNAPSHOT_URL` Secret 和 `RAILLIVE_SNAPSHOT_SHA256` Variable。这个地址需要指向**原始输入包**。此前的运行快照归档主要含生成索引，缺少本流程所需的原始文件。仓库和归档都缺输入时，Actions 只执行源码检查。
 
 ## Docker 运行
 
