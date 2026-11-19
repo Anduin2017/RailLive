@@ -304,11 +304,8 @@ function settleSheet(target, velocity = 0) {
   const start = motion.y, distance = start - end;
   motion.target = target;
   function finish() {
-    resetSheet(target === 'full');
-    if (target === 'closed') {
-      setPanelWindow('closed');
-      sidebarToggle.focus({preventScroll:true});
-    }
+    if (target === 'closed') closeInfoPanel();
+    else resetSheet(target === 'full');
   }
   if (matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(distance)<0.5) {
     finish();
@@ -399,6 +396,13 @@ function setPanelWindow(view) {
   searchToggle.setAttribute('aria-expanded', String(view === 'search'));
   if (view !== 'search' && document.activeElement === query) query.blur();
 }
+
+function closeInfoPanel() {
+  setPanelWindow('closed');
+  sidebarToggle.focus({preventScroll:true});
+}
+
+document.querySelector('#sheet-minimize').onclick = closeInfoPanel;
 
 function setStationView(view) {
   sidebar.dataset.stationView = view;

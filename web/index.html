@@ -7,7 +7,7 @@
   <title>中国铁路实况</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./vendor/mapbox-gl.css">
-  <link rel="stylesheet" href="./app.css?v=hourly-types1">
+  <link rel="stylesheet" href="./app.css?v=sheet-minimize1">
   <link rel="stylesheet" href="./catalog.css?v=metric-help1">
   <!-- static-data -->
   <script defer src="./vendor/mapbox-gl.js"></script>
@@ -19,7 +19,7 @@
   <script defer src="./live.js?v=valid-arrivals1"></script>
   <script defer src="./station-board.js?v=valid-arrivals1"></script>
   <script defer src="./station-symbols.js?v=platform-scale2"></script>
-  <script defer src="./app.js?v=line-links1"></script>
+  <script defer src="./app.js?v=sheet-minimize1"></script>
   <script defer src="./catalog.js?v=metric-help1"></script>
 </head>
 <body>
@@ -52,6 +52,9 @@
       <h2 id="about-title">关于中国铁路实况</h2>
       <p>地图根据列车时刻表和铁路轨迹推演位置、速度和到发状态。实际运行可能有所不同。</p>
       <p>本项目仅供娱乐和一般性参考，请勿作为购票、乘车、铁路运营或其他生产活动的依据。实际开行、到发时刻及正晚点信息，请以车站公告和<a href="https://www.12306.cn/" target="_blank" rel="noopener">铁路 12306</a>发布的信息为准。</p>
+      <p id="snapshot"><span class="loading-indicator" role="status">加载中</span></p>
+      <h3>地图图例</h3>
+      <div class="legend"><span><i class="hsr"></i>高速铁路</span><span><i class="fast-rail"></i>快速铁路</span><span><i class="regular"></i>普速铁路</span><span><i class="selected-rail"></i>所选线路</span><span><i class="selected"></i>所选车次径路</span></div>
       <dl class="about-links">
         <dt>项目源码</dt><dd><a target="_blank" rel="noopener" href="https://github.com/Anduin2017/RailLive">RailLive · GitHub</a></dd>
         <dt>开发者</dt><dd><a target="_blank" rel="noopener" href="https://github.com/Anduin2017">Anduin Xue</a></dd>
@@ -70,6 +73,7 @@
   <aside id="sidebar" class="sidebar" data-window="search" aria-label="搜索">
     <div class="sheet-tools">
       <button id="sheet-handle" type="button" aria-label="展开信息卡" aria-expanded="false" aria-controls="panel"><span aria-hidden="true"></span></button>
+      <button id="sheet-minimize" type="button" aria-label="最小化信息卡" title="最小化信息卡"><span aria-hidden="true">−</span></button>
     </div>
     <header>
       <h1>中国铁路实况</h1>
@@ -86,10 +90,6 @@
       <button type="button" data-station-view="board" aria-pressed="false">到发时刻</button>
     </div>
     <div id="panel" aria-live="polite"></div>
-    <footer>
-      <div id="snapshot"><span class="loading-indicator" role="status">加载中</span></div>
-      <div class="legend"><span><i class="hsr"></i>高速铁路</span><span><i class="fast-rail"></i>快速铁路</span><span><i class="regular"></i>普速铁路</span><span><i class="selected-rail"></i>所选线路</span><span><i class="selected"></i>所选车次径路</span></div>
-    </footer>
   </aside>
   <nav class="catalog-dock" aria-label="地图工具">
     <button type="button" data-catalog="lines" aria-haspopup="dialog">所有线路</button>
