@@ -21,9 +21,9 @@ async def check(ev, wait):
     assert await ev("!cam() && q('.basemap-switcher').children.length===3")
     await ev("followView.autoFollow=true;select1211()")
     await wait("flat() && pressed(flat()) && !cam().hidden")
-    assert await ev("map.getPitch()===0 && !pressed(cam()) && map.getCenter().toArray().every((n,i)=>Math.abs(n-head().geometry.coordinates[i])<0.00001)")
+    assert await ev("map.getPitch()===0 && !pressed(cam()) && Math.abs(map.project(head().geometry.coordinates).y-map.getCanvas().clientHeight/3)<1")
     await ev("cam().click()")
-    await wait("tracking()")
+    await wait("tracking() && sidebar.hidden && aboutPanel.hidden")
     assert await ev("pressed(q('#rail-basemap')) && !pressed(flat()) && map.getZoom()===13")
     # Across the Jinan stop this service turns from the eastbound line onto
     # the southbound main line. Check both arms and direct seeks in either order.
@@ -60,7 +60,8 @@ async def check(ev, wait):
     assert await ev("pressed(q('#rail-basemap')) && tracking()")
     await ev("q('.mapboxgl-ctrl-zoom-in').click()")
     await wait("map.getZoom()===15 && !map.isZooming() && tracking()")
-    await ev("flat().click()")
+    await ev("sidebarToggle.click();flat().click()")
+    assert await ev("!sidebar.hidden")
     assert await ev("pressed(flat()) && !pressed(cam()) && map.getPitch()===0")
     await ev("cam().click()")
     await wait("map.getZoom()===15 && tracking()")

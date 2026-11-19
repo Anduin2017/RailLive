@@ -4,7 +4,11 @@ const panel = document.querySelector('#panel');
 const form = document.querySelector('#search');
 const query = document.querySelector('#query');
 const sidebar = document.querySelector('#sidebar');
+const aboutToggle = document.querySelector('#about-toggle');
+const aboutPanel = document.querySelector('#about-panel');
 const sidebarToggle = document.querySelector('#sidebar-toggle');
+const searchToggle = document.querySelector('#search-toggle');
+const stationViewButtons = sidebar.querySelectorAll('[data-station-view]');
 const national = [[69, 18], [135, 56]];
 const coordinateFit = {
   xx: 1.015972842, xy: -0.000070497, x0: -5.116568470,
@@ -17,6 +21,7 @@ const emptyStation = {type:'FeatureCollection',features:[]};
 
 function clearStationHighlight() {
   document.querySelector('#station-board')?.remove();
+  setStationView('details');
   if (!selectedStation) return;
   selectedStation=null;
   stationSymbols.select();
@@ -241,23 +246,188 @@ async function get(path, options) {
   return response.json();
 }
 
+function mobileFocusShift() {
+  return sidebar.dataset.window === 'info' && matchMedia('(max-width:680px)').matches
+    ? map.getCanvas().clientHeight / 6 : 0;
+}
+
 function mapPadding() {
-  return panel.hasChildNodes() && !sidebar.classList.contains('collapsed') && window.innerWidth > 680
+  const shift = mobileFocusShift();
+  if (shift) return {left:24, right:24, top:24, bottom:24 + 2*shift};
+  return sidebar.dataset.window === 'info' && window.innerWidth > 680
     ? {left: 410, right: 36, top: 30, bottom: 36}
     : 24;
 }
 
-function setSidebarVisible(visible) {
-  sidebar.classList.toggle('collapsed', !visible);
-  const label = visible ? '收起面板' : '展开面板';
-  sidebarToggle.setAttribute('aria-expanded', String(visible));
-  sidebarToggle.setAttribute('aria-label', label);
-  sidebarToggle.title = label;
-  if (map) map.resize();
-  (visible && !panel.hasChildNodes() ? query : sidebarToggle).focus({preventScroll: true});
+const sheetHandle = document.querySelector('#sheet-handle');
+let sheetDrag, sheetMotion, sheetFrame;
+
+function resetSheet(expanded) {
+  cancelAnimationFrame(sheetFrame);
+  sheetMotion = sheetDrag = null;
+  delete sidebar.dataset.moving;
+  sidebar.style.removeProperty('--sheet-y');
+  sidebar.style.removeProperty('--sheet-clip');
+  sidebar.dataset.expanded = String(expanded);
+  sheetHandle.setAttribute('aria-expanded', String(expanded));
+  sheetHandle.setAttribute('aria-label', expanded ? '收回到半屏' : '展开信息卡');
 }
 
-sidebarToggle.onclick = () => setSidebarVisible(sidebar.classList.contains('collapsed'));
+function startSheetMotion() {
+  cancelAnimationFrame(sheetFrame);
+  if (sheetMotion) return;
+  const rect = sidebar.getBoundingClientRect();
+  const expanded = sidebar.dataset.expanded === 'true';
+  // Measure the actual middle stop with the current viewport and timeline.
+  if (expanded) sidebar.dataset.expanded = 'false';
+  const half = expanded ? sidebar.getBoundingClientRect() : rect;
+  if (expanded) sidebar.dataset.expanded = 'true';
+  sheetMotion = {
+    y:rect.top, rest:half.top, bottomGap:innerHeight - half.bottom,
+    sideGap:half.left, height:innerHeight, expanded
+  };
+}
+
+function placeSheet(y) {
+  const motion = sheetMotion;
+  motion.y = Math.max(0, Math.min(motion.height, y));
+  const fraction = motion.rest ? Math.min(1, motion.y / motion.rest) : 0;
+  const bottom = Math.max(0, motion.y + motion.bottomGap * fraction - Math.max(0,motion.y-motion.rest));
+  sidebar.style.setProperty('--sheet-y', motion.y + 'px');
+  sidebar.style.setProperty('--sheet-clip', 'inset(0 ' + motion.sideGap*fraction + 'px ' + bottom + 'px round ' + 12*fraction + 'px)');
+  sidebar.dataset.moving = 'true';
+}
+
+function settleSheet(target, velocity = 0) {
+  const motion = sheetMotion;
+  const end = target === 'closed' ? motion.height : target === 'full' ? 0 : motion.rest;
+  const start = motion.y, distance = start - end;
+  motion.target = target;
+  function finish() {
+    resetSheet(target === 'full');
+    if (target === 'closed') {
+      setPanelWindow('closed');
+      sidebarToggle.focus({preventScroll:true});
+    }
+  }
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(distance)<0.5) {
+    finish();
+    return;
+  }
+  // Critically damped spring, evaluated from elapsed time in seconds.
+  const started = performance.now(), damping = 22;
+  const initialSpeed = Math.max(-1800,Math.min(1800,velocity));
+  function frame(time) {
+    const t = Math.max(0,(time-started)/1000);
+    const offset = (distance + (initialSpeed + damping*distance)*t)*Math.exp(-damping*t);
+    if (Math.abs(offset)<0.5 || t>0.55) return finish();
+    placeSheet(end+offset);
+    sheetFrame = requestAnimationFrame(frame);
+  }
+  sheetFrame = requestAnimationFrame(frame);
+}
+
+function resistedTravel(distance, threshold) {
+  const travel = Math.max(0, distance - 6);
+  const ramp = Math.min(12, Math.max(0, distance - threshold));
+  // Blend the slope from 1/3 to 1 over 12px without jumping in position.
+  return travel / 3 + ramp*ramp/36 + (2/3)*Math.max(0,distance-threshold-12);
+}
+
+sheetHandle.onpointerdown = event => {
+  if (!event.isPrimary || event.button !== 0) return;
+  startSheetMotion();
+  sheetHandle.setPointerCapture(event.pointerId);
+  sheetDrag = {id:event.pointerId, finger:event.clientY, start:sheetMotion.y,
+    threshold:Math.max(44,Math.min(72,innerHeight*.08)), at:event.timeStamp, velocity:0};
+};
+function trackSheet(event) {
+  const drag = sheetDrag;
+  const delta = event.clientY - drag.finger;
+  let y = drag.start + Math.sign(delta)*resistedTravel(Math.abs(delta),drag.threshold);
+  drag.pastMiddle = 0;
+  if (drag.start < sheetMotion.rest && y > sheetMotion.rest) {
+    drag.pastMiddle = y - sheetMotion.rest;
+    y = sheetMotion.rest + resistedTravel(drag.pastMiddle,drag.threshold);
+  }
+  const previous = sheetMotion.y;
+  if (y !== previous && (Math.abs(delta)>6 || sidebar.dataset.moving)) placeSheet(y);
+  const elapsed = event.timeStamp-drag.at;
+  if (elapsed>0) drag.velocity = elapsed>100 ? 0 : .4*drag.velocity + .6*(sheetMotion.y-previous)*1000/elapsed;
+  drag.at = event.timeStamp;
+  return delta;
+}
+sheetHandle.onpointermove = event => {
+  if (sheetDrag?.id === event.pointerId) trackSheet(event);
+};
+function releaseSheet(event, cancelled) {
+  if (sheetDrag?.id !== event.pointerId) return;
+  const drag = sheetDrag, motion = sheetMotion;
+  const delta = cancelled ? 0 : trackSheet(event);
+  let target = motion.target || (motion.expanded ? 'full' : 'half');
+  if (delta >= drag.threshold) {
+    target = 'half';
+    // When dragging from the top, reserve a deliberate second stretch below
+    // the middle stop. Keep it reachable even on a short screen.
+    const available = Math.max(0,motion.height - drag.finger - (motion.rest-drag.start) - drag.threshold);
+    const secondGate = Math.min(available*.8,Math.max(drag.threshold,available*.6));
+    if (drag.start >= motion.rest || drag.pastMiddle > secondGate) target = 'closed';
+  }
+  if (delta <= -drag.threshold) target = 'full';
+  sheetDrag = null;
+  settleSheet(target,drag.velocity);
+}
+sheetHandle.onpointerup = event => releaseSheet(event,false);
+sheetHandle.onlostpointercapture = event => releaseSheet(event,true);
+sheetHandle.onclick = event => {
+  if (event.detail || sheetDrag) return;
+  startSheetMotion();
+  settleSheet(sidebar.dataset.expanded === 'true' ? 'half' : 'full');
+};
+window.addEventListener('resize', () => {
+  if (sheetMotion) resetSheet(sheetMotion.expanded);
+});
+
+function setPanelWindow(view) {
+  if (view !== 'info') resetSheet(false);
+  sidebar.dataset.window = view;
+  sidebar.hidden = view === 'closed' || view === 'about';
+  aboutPanel.hidden = view !== 'about';
+  aboutToggle.setAttribute('aria-expanded', String(view === 'about'));
+  sidebar.setAttribute('aria-label', view === 'search' ? '搜索' : '信息');
+  sidebarToggle.setAttribute('aria-expanded', String(view === 'info'));
+  searchToggle.setAttribute('aria-expanded', String(view === 'search'));
+  if (view !== 'search' && document.activeElement === query) query.blur();
+}
+
+function setStationView(view) {
+  sidebar.dataset.stationView = view;
+  for (const button of stationViewButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.stationView === view));
+  }
+}
+
+for (const button of stationViewButtons) {
+  button.onclick = () => setStationView(button.dataset.stationView);
+}
+
+sidebarToggle.onclick = () => {
+  if (sidebar.dataset.window === 'search') clearMapSelection();
+  setPanelWindow(sidebar.dataset.window === 'info' ? 'closed' : 'info');
+};
+aboutToggle.onclick = () => {
+  const open = sidebar.dataset.window !== 'about';
+  clearMapSelection();
+  if (open) setPanelWindow('about');
+};
+searchToggle.onclick = () => {
+  const open = sidebar.dataset.window !== 'search';
+  clearMapSelection();
+  if (open) {
+    setPanelWindow('search');
+    query.focus({preventScroll: true});
+  }
+};
 
 function fit(bounds, maxZoom = 8) {
   if (map) map.fitBounds(bounds, {padding: mapPadding(), maxZoom, duration: 450});
@@ -502,12 +672,19 @@ function section(text) {
   el('h2', text, panel);
 }
 
-async function updatePanel(load, render) {
+function loadingIndicator() {
+  const indicator = el('span', '加载中', null, 'loading-indicator');
+  indicator.setAttribute('role', 'status');
+  return indicator;
+}
+
+async function updatePanel(load, render, view = 'info') {
   clearStationHighlight();
   liveTimeline.detachTrip();
   const version = ++panelVersion;
-  panel.replaceChildren(el('p', '正在读取本地数据…'));
-  if (sidebar.classList.contains('collapsed')) setSidebarVisible(true);
+  panel.replaceChildren(loadingIndicator());
+  panel.scrollTop = 0;
+  setPanelWindow(view);
   try {
     const result = await load();
     if (version === panelVersion) render(result);
@@ -635,7 +812,6 @@ function addStopBadges() {
 }
 
 function showLine(name, origin = '', station = null, focusView = followView.line) {
-  if (sidebar.classList.contains('collapsed')) setSidebarVisible(true);
   clearMapSelection();
   const fetchLine = (id, from = '') => get('/api/line/' + encodeURIComponent(id) + (from ? '?from=' + from : ''));
   return updatePanel(async () => {
@@ -998,7 +1174,7 @@ function showStation(id, focusView = followView.station) {
     stationSymbols.select();
     if (map && focusView) {
       map.easeTo({center, zoom: Math.max(map.getZoom(), 11.5),
-        padding: typeof mapPadding() === 'number' ? {top: 0, bottom: 0, left: 0, right: 0} : mapPadding()});
+        offset:[0,-mobileFocusShift()]});
     }
   });
 }
@@ -1012,7 +1188,9 @@ function stationDistance(station, [lon, lat]) {
 function search(term, stationPosition) {
   term = term.trim();
   if (!term) return;
+  clearMapSelection();
   query.value = term;
+  query.blur();
   const params = new URLSearchParams({q: term});
   if (stationPosition) params.set('scope', 'station');
   updatePanel(() => get('/api/search?' + params), results => {
@@ -1067,16 +1245,16 @@ function search(term, stationPosition) {
         if (line.origin && line.destination) el('small', `${line.origin} → ${line.destination}`, button);
       }
     }
-  });
+  }, stationPosition ? 'info' : 'search');
 }
 
 form.onsubmit = event => { event.preventDefault(); search(query.value); };
 function clearMapSelection() {
+  setPanelWindow('closed');
   if (!panel.hasChildNodes() && !selectedStation && !route.features.length) return;
   map?.stop();
   ++panelVersion;
   panel.replaceChildren();
-  if (sidebar.classList.contains('collapsed')) setSidebarVisible(true);
   liveTimeline.detachTrip();
   clearStationHighlight();
   route = {type: 'FeatureCollection', features: []};
@@ -1133,7 +1311,7 @@ async function start() {
   const info = await get('/api/info');
   const d = info.feed_version;
   document.querySelector('#snapshot').textContent =
-    `${info.preview ? "阶段预览 · " : ""}${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)} 快照 · ${info.numbers.toLocaleString()} 个车次号 · ${info.stops.toLocaleString()} 座车站 · 瓦片到 ${info.map.maxzoom} 级`;
+    `${info.preview ? "阶段预览 · " : ""}${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)} 快照 · ${info.numbers.toLocaleString()} 个车次号 · ${info.stops.toLocaleString()} 座车站`;
   if (!mapboxgl.supported()) {
     el('p', '当前浏览器无法使用 WebGL，时刻表仍可搜索。', panel);
     return;
@@ -1233,6 +1411,7 @@ async function start() {
     if (!feature) {
       if (map.getLayer('selected-train-heading') && map.queryRenderedFeatures(event.point,
           {layers:['selected-train-heading','selected-train-caption']}).length) {
+        setPanelWindow('info');
         liveTimeline.trainCamera?.selectOnMap();
         return;
       }
@@ -1250,7 +1429,10 @@ async function start() {
       else clearMapSelection();
       return;
     }
-    if (feature.source === 'selected-station') return;
+    if (feature.source === 'selected-station') {
+      setPanelWindow('info');
+      return;
+    }
     if (feature.source === 'selected-route') {
       if (feature.properties.id) showStation(feature.properties.id);
       else {
@@ -1271,4 +1453,7 @@ async function start() {
   });
 }
 
-start().catch(error => el('p', `本地服务读取失败（${error.message}）`, panel));
+start().catch(error => {
+  el('p', `本地服务读取失败（${error.message}）`, panel);
+  setPanelWindow('info');
+});

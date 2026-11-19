@@ -1,4 +1,0 @@
-body{margin:0;background:#f1f5f1;color:#243d35;font:16px/1.65 system-ui,sans-serif}
-main{max-width:47rem;margin:clamp(1rem,4vw,4rem) auto;padding:clamp(1.25rem,4vw,3rem);background:#fff;border:1px solid #d0ded4;border-radius:12px}
-h1,h2{line-height:1.3;color:#184f43}h2{font-size:1.22rem;margin-top:1.8rem}
-a{color:#176450;text-underline-offset:3px}li{font-variant-numeric:tabular-nums}

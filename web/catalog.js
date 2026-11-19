@@ -85,7 +85,6 @@ function setupCatalog() {
 
   async function openDetail(kind, item) {
     close();
-    if (sidebar.classList.contains('collapsed')) setSidebarVisible(true);
     const pending = catalogViews[kind].open(item.id);
     const version = panelVersion;
     await pending;
@@ -170,7 +169,7 @@ function setupCatalog() {
     scroll.setAttribute('aria-busy', 'true');
     body.inert = true;
     empty.hidden = true;
-    count.textContent = '正在读取本地索引…';
+    count.replaceChildren(loadingIndicator());
     for (const button of pagination) button.disabled = true;
     if (delay) timer = setTimeout(load, delay);
     else load();
@@ -229,7 +228,7 @@ function setupCatalog() {
     scroll.setAttribute('aria-busy', 'true');
     body.inert = true;
     empty.hidden = true;
-    count.textContent = '正在读取本地索引…';
+    count.replaceChildren(loadingIndicator());
     for (const button of pagination) button.disabled = true;
     try {
       const data = await get(`/api/catalog/${kind}?${params}`, {signal: request.signal});

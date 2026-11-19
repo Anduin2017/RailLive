@@ -62,37 +62,44 @@ function stationStatsBars(parent, title, detail, groups, drill) {
 }
 
 function stationStatsHourly(parent, trains, drill) {
-  function hour(value) {
-    const seconds = timetableSeconds(value);
-    return seconds === null ? null : Math.floor(seconds / 3600) % 24;
+  const series = [
+    {kind:'through', label:'经停'},
+    {kind:'origin', label:'起点发出'},
+    {kind:'terminal', label:'终点到站'}
+  ];
+  const hours = Array.from({length:24}, () => ({through:[], origin:[], terminal:[]}));
+  let max = 0;
+  for (const train of trains) {
+    const seconds = timetableSeconds(train.kind === 'origin' ? train.departure : train.arrival);
+    if (seconds === null) continue;
+    const rows = hours[Math.floor(seconds / 3600) % 24][train.kind];
+    if (rows) max = Math.max(max, rows.push(train));
   }
-  const arrivals = stationStatsGroup(trains, train => hour(train.arrival));
-  const departures = stationStatsGroup(trains, train => hour(train.departure));
-  const max = Math.max(0, ...[...arrivals.values(), ...departures.values()].map(rows => rows.length));
-  const card = stationStatsCard(parent, '24 小时到发分布', '按本站钟点统计。一趟经停车可同时计入到站和离站。');
+  const card = stationStatsCard(parent, '24 小时到发分布', '按本站计划时刻统计。经停和终到按到站小时，始发按发车小时，每次停靠只计一次。');
   if (!max) {
     el('p', '没有可统计的到发时刻。', card, 'stats-description');
     return;
   }
   const legend = el('div', null, card, 'stats-hour-legend');
-  el('span', '到站', legend, 'stats-arrival-key');
-  el('span', '离站', legend, 'stats-departure-key');
+  for (const {kind,label} of series) el('span', label, legend, 'stats-kind-' + kind);
   el('span', `单柱最高 ${max} 次`, legend, 'stats-hour-max');
 
   const grid = el('div', null, card, 'stats-hour-grid');
   for (let i = 0; i < 24; i++) {
-    const inRows = arrivals.get(i) ?? [];
-    const outRows = departures.get(i) ?? [];
+    const groups = hours[i];
     const time = String(i).padStart(2, '0');
-    const label = `${time}:00–${time}:59 · 到站 ${inRows.length} · 离站 ${outRows.length}`;
-    const button = action(grid, '', () => drill(label, [...new Set([...inRows, ...outRows])]), 'stats-hour');
-    button.disabled = !inRows.length && !outRows.length;
+    const counts = series.map(({kind,label}) => label + ' ' + groups[kind].length);
+    const label = [time + ':00–' + time + ':59', ...counts].join(' · ');
+    const rows = series.flatMap(({kind}) => groups[kind]);
+    const button = action(grid, '', () => drill(label, rows), 'stats-hour');
+    button.disabled = !rows.length;
     button.title = label;
     button.setAttribute('aria-label', label);
     const bars = el('span', null, button, 'stats-hour-bars');
     bars.setAttribute('aria-hidden', 'true');
-    el('span', null, bars, 'stats-arrival').style.height = `${100 * inRows.length / max}%`;
-    el('span', null, bars, 'stats-departure').style.height = `${100 * outRows.length / max}%`;
+    for (const {kind} of series) {
+      el('span', null, bars, 'stats-kind-' + kind).style.height = `${100 * groups[kind].length / max}%`;
+    }
     el('span', time, button);
   }
 }

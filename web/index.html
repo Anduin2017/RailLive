@@ -7,21 +7,20 @@
   <title>中国铁路实况</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./vendor/mapbox-gl.css">
-  <link rel="stylesheet" href="./app.css?v=sidebar-actions2">
+  <link rel="stylesheet" href="./app.css?v=hourly-types1">
   <link rel="stylesheet" href="./catalog.css?v=timeline-dock1">
   <!-- static-data -->
   <script defer src="./vendor/mapbox-gl.js"></script>
-  <script defer src="./station-stats.js"></script>
-  <script defer src="./train-relations.js?v=departures-all1"></script>
-  <script defer src="./train-motion.js?v=station-matching3"></script>
-  <script defer src="./train-panel.js?v=timeline-dock1"></script>
+  <script defer src="./station-stats.js?v=hourly-types1"></script>
+  <script defer src="./train-motion.js?v=motion2"></script>
+  <script defer src="./train-panel.js?v=mobile-focus1"></script>
   <script defer src="./space-time.js?v=1"></script>
   <script defer src="./region-live.js?v=timeline-dock1"></script>
-  <script defer src="./live.js?v=timeline-dock1"></script>
-  <script defer src="./station-board.js?v=floating-board1"></script>
+  <script defer src="./live.js?v=journey-order1"></script>
+  <script defer src="./station-board.js?v=compact-board1"></script>
   <script defer src="./station-symbols.js?v=platform-scale2"></script>
-  <script defer src="./app.js?v=sidebar-actions2"></script>
-  <script defer src="./catalog.js?v=sidebar-toggle1"></script>
+  <script defer src="./app.js?v=mobile-focus1"></script>
+  <script defer src="./catalog.js?v=floating-panels2"></script>
 </head>
 <body>
   <div id="map" aria-label="铁路地图"></div>
@@ -33,9 +32,45 @@
     </div>
     <div id="basemap-status" role="status" hidden></div>
   </div>
-  <aside id="sidebar" class="sidebar">
+  <nav class="map-panel-tools" aria-label="地图面板">
+    <button id="sidebar-toggle" type="button" aria-label="信息" title="信息" aria-controls="sidebar" aria-expanded="false">
+      <span class="panel-icon-menu" aria-hidden="true"></span>
+    </button>
+    <button id="search-toggle" type="button" aria-label="搜索" title="搜索" aria-controls="sidebar" aria-expanded="true">
+      <span class="panel-icon-search" aria-hidden="true"></span>
+    </button>
+    <button id="about-toggle" type="button" aria-label="关于" title="关于" aria-controls="about-panel" aria-expanded="false">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9 9a3 3 0 0 1 6 0c0 2.2-3 2.4-3 5" stroke-linecap="round"/>
+        <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+  </nav>
+  <aside id="about-panel" class="sidebar" aria-labelledby="about-title" hidden>
+    <article class="about-content">
+      <h2 id="about-title">关于中国铁路实况</h2>
+      <p>地图根据列车时刻表和铁路轨迹推演位置、速度和到发状态。实际运行可能有所不同。</p>
+      <dl class="about-links">
+        <dt>项目源码</dt><dd><a target="_blank" rel="noopener" href="https://github.com/Anduin2017/RailLive">RailLive · GitHub</a></dd>
+        <dt>开发者</dt><dd><a target="_blank" rel="noopener" href="https://github.com/Anduin2017">Anduin Xue</a></dd>
+        <dt>灵感来自</dt><dd><a target="_blank" rel="noopener" href="http://cnrail.geogv.org/zhcn/">中国铁路地图</a></dd>
+      </dl>
+      <h3>数据来源与许可</h3>
+      <dl class="about-sources">
+        <dt>时刻表与轨迹</dt><dd>Jeremy Gao 的 Chinese Railway GTFS 提供停站、开行日历和轨迹，采用 CC BY 4.0。我们整合车站、推算径路，再生成地图播放所用的时空瓦片。<a target="_blank" rel="noopener" href="https://github.com/wensimehrp/chinese-railway-gtfs/releases/tag/gtfs-20261117-101334">数据发行版</a></dd>
+        <dt>铁路底图与站线资料</dt><dd>部分快照来自 Kejing Peng 的中国铁路地图，配套线路表另注明 jprailfan.com。上游说明，除特别注明的图文外，其他内容采用 CC BY-SA 4.0。整套资源的再分发授权仍待核实。<a target="_blank" rel="noopener" href="http://cnrail.geogv.org/zhcn/about">上游声明</a></dd>
+        <dt>地理背景与卫星影像</dt><dd>地理数据 © OpenStreetMap 贡献者，采用 ODbL。卫星影像使用 EOX Sentinel-2 cloudless 2016，包含经修改的 Copernicus Sentinel 数据，采用 CC BY 4.0。</dd>
+        <dt>软件</dt><dd>RailLive 原创代码采用 MIT 许可。地图渲染使用 Mapbox GL JS，随附 BSD 三条款及依赖许可，并调整了字形回退。</dd>
+      </dl>
+      <a target="_blank" rel="noopener" href="https://github.com/Anduin2017/RailLive/blob/master/THIRD_PARTY.md">完整第三方来源与许可</a>
+    </article>
+  </aside>
+  <aside id="sidebar" class="sidebar" data-window="search" aria-label="搜索">
+    <div class="sheet-tools">
+      <button id="sheet-handle" type="button" aria-label="展开信息卡" aria-expanded="false" aria-controls="panel"><span aria-hidden="true"></span></button>
+    </div>
     <header>
-      <button id="sidebar-toggle" class="rail-mark" type="button" aria-label="收起面板" title="收起面板" aria-controls="sidebar" aria-expanded="true"><span aria-hidden="true">═</span></button>
       <h1>中国铁路实况</h1>
     </header>
     <form id="search" role="search">
@@ -45,10 +80,13 @@
         <button type="submit">搜索</button>
       </div>
     </form>
+    <div class="station-panel-switch" role="group" aria-label="车站信息">
+      <button type="button" data-station-view="details" aria-pressed="true">车站详情</button>
+      <button type="button" data-station-view="board" aria-pressed="false">到发时刻</button>
+    </div>
     <div id="panel" aria-live="polite"></div>
     <footer>
-      <a class="coverage-link" href="./data/live-audit/index.html" target="_blank" rel="noopener">直播覆盖报告</a>
-      <div id="snapshot">正在读取本地数据…</div>
+      <div id="snapshot"><span class="loading-indicator" role="status">加载中</span></div>
       <div class="legend"><span><i class="hsr"></i>高速铁路</span><span><i class="fast-rail"></i>快速铁路</span><span><i class="regular"></i>普速铁路</span><span><i class="selected-rail"></i>所选线路</span><span><i class="selected"></i>所选车次径路</span></div>
     </footer>
   </aside>
@@ -57,9 +95,9 @@
     <button type="button" data-catalog="trains" aria-haspopup="dialog">所有车次</button>
     <button type="button" data-catalog="stations" aria-haspopup="dialog">所有车站</button>
     <button id="open-map-settings" type="button" aria-haspopup="dialog" aria-controls="map-settings"><span class="catalog-icon" aria-hidden="true">⚙</span>设置</button>
-    <button id="live-toggle" type="button" aria-controls="live-clock" aria-expanded="true"><span class="catalog-icon" aria-hidden="true">◷</span>时间轴</button>
+    <button id="live-toggle" type="button" aria-controls="live-clock" aria-expanded="false"><span class="catalog-icon" aria-hidden="true">◷</span>时间轴</button>
   </nav>
-  <section id="live-clock" aria-label="全局时间轴">
+  <section id="live-clock" hidden aria-label="全局时间轴">
     <div class="live-heading">
       <strong>时间轴</strong>
       <label>北京时间 <input type="date" id="live-date" aria-label="北京时间日期"></label>

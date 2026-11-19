@@ -50,8 +50,7 @@ async def check(ev, wait):
     await wait("spaceTime.stats.complete && map.getSource('region-trains')?._data.features.some(f=>f.properties.number==='G1211')")
     await ev("void search('G1211')")
     await wait("panel.querySelector('h2')?.textContent==='G1211' && map.getSource('selected-train')?._data.features.length")
-    await ev("document.querySelector('.relation-card').parentNode.open=true")
-    await wait("document.querySelector('.relation-card select')?.options.length")
+    assert await ev("!panel.querySelector('.relation-card')")
     await ev("void showStation('OHH')")
     await wait("document.querySelector('#station-board .board-departures button')")
     # Includes startup assets, JSON, data, glyphs and map tile requests.
@@ -59,7 +58,7 @@ async def check(ev, wait):
       .filter(u=>u.origin===location.origin && (!u.href.startsWith(new URL('.',location.href).href) ||
         u.pathname.split('/').includes('api'))).map(u=>u.href)""")
     assert not unexpected, unexpected
-    print(f'{len(routes)} static queries matched the snapshot; map, station board and relations ran inside the deployment prefix.')
+    print(f'{len(routes)} static queries matched the snapshot; map and station board ran inside the deployment prefix.')
 
 
 if __name__ == '__main__':

@@ -33,7 +33,7 @@ async def check(ev, wait):
             await wait("panel.querySelector('.journey-header button').getAttribute('aria-pressed')==='true'")
         await wait("map.loaded() && !map.isMoving()")
         assert await ev("clickBlank()")
-        await wait("!panel.hasChildNodes() && !selectedStation && !route.features.length && !map.getSource('selected-train')?._data.features.length && query.offsetWidth>0")
+        await wait("!panel.hasChildNodes() && !selectedStation && !route.features.length && !map.getSource('selected-train')?._data.features.length && sidebar.hidden && query.offsetWidth===0")
     # Select the overnight G897 directly on the map, then hold the empty
     # GeoJSON update so the old tile is still drawable during deselection.
     await ev("""window.when=liveTimeline.midnight('2026-11-17')+119000;

@@ -1,5 +1,20 @@
 'use strict';
 
+function peerDistance(samples, t) {
+  if (!samples?.length || t<samples[0][0] || t>samples.at(-1)[0]) return null;
+  let lo=0, hi=samples.length-1;
+  while (lo<hi) {
+    const mid=(lo+hi+1)>>>1;
+    if (samples[mid][0]<=t) lo=mid;
+    else hi=mid-1;
+  }
+  const [time,at]=samples[lo];
+  if (t===time) return at;
+  const next=samples[lo+1];
+  if (at===null || !next || next[1]===null) return null;
+  return at+(next[1]-at)*(t-time)/(next[0]-time);
+}
+
 // Geometry distances use the unshifted GTFS coordinates; apply the basemap
 // transform only when drawing. All internal motion quantities use metres and seconds.
 function motionPath(points) {

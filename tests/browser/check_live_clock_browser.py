@@ -12,6 +12,8 @@ async def check(ev, wait):
     window.resume=()=>q('#live-now').click();
     window.following=()=>live() && liveTimeline.playbackRate===1 && q('#live-speed').value==='1'
       && Math.abs(Date.now()-liveTimeline.time())<100 && !q('#live-clock').hidden""")
+    assert await ev("q('#live-clock').hidden && q('#live-toggle').getAttribute('aria-expanded')==='false' && live() && liveTimeline.playbackRate===1")
+    await ev("q('#live-toggle').click()")
     assert await ev("following() && q('#live-toggle').getAttribute('aria-expanded')==='true'")
     await ev("speed(64);clickRate(-1);q('#live-minimize').click();window.minimizedAt=liveTimeline.time()")
     await asyncio.sleep(.15)

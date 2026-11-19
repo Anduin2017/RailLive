@@ -1,16 +1,18 @@
 'use strict';
 
-function trainMotionView(trip, host) {
+function trainMotionView(trip, host, runPicker) {
   let markerSource, model, position, lastCaption, lastParked, lastZoom, run, lastAt, lastSecond;
   let lastLeg, departureAt, captionSecond, captionSpeed;
   let cameraMode='static', heading, previousView, lastTrack;
   host.className='journey';
-  host.hidden=true;
   const calls=trip.stops.map(stop=>({...stop,
     arrive:timetableSeconds(stop.arrival),depart:timetableSeconds(stop.departure)}));
   const routeLabel=[trip.origin || calls[0]?.name, trip.destination || calls.at(-1)?.name]
     .filter(Boolean).join(' --> ');
   const hero=el('section',null,host,'journey-hero');
+  host.insertBefore(hero,runPicker);
+  const details=el('div',null,host);
+  hero.hidden=details.hidden=true;
   const header=el('div',null,hero,'journey-header');
   const stateLabel=el('strong',null,header);
   const cameras=el('div',null,header,'journey-cameras');
@@ -23,7 +25,9 @@ function trainMotionView(trip, host) {
       map.easeTo({...options,center:position,bearing:heading,
         offset:[0,map.getCanvas().clientHeight*.15],duration:0});
     } else if (cameraMode==='map') {
-      map.jumpTo({...options,center:position});
+      const shift = mobileFocusShift();
+      if (shift) map.easeTo({...options,center:position,offset:[0,-shift],duration:0});
+      else map.jumpTo({...options,center:position});
     }
   }
 
@@ -48,6 +52,10 @@ function trainMotionView(trip, host) {
       map.on('resize',onResize);
     }
     if (mode==='navigation') {
+      if (matchMedia('(max-width:680px)').matches) {
+        setPanelWindow('closed');
+        sidebarToggle.focus({preventScroll:true});
+      }
       placeCamera({pitch:55,zoom:enteringNavigation ? Math.max(13,map.getZoom()) : map.getZoom()});
     } else if (mode==='map') {
       placeCamera({...previousView,pitch:0});
@@ -67,7 +75,7 @@ function trainMotionView(trip, host) {
   const targetLabel=el('small',null,target), targetName=el('strong',null,target);
   const etaLabel=el('small',null,eta), etaValue=el('strong',null,eta);
   const note=el('small',null,hero,'journey-note');
-  const plan=el('section',null,host,'journey-plan');
+  const plan=el('section',null,details,'journey-plan');
   const planHeading=el('div',null,plan,'journey-header');
   el('h3','全程停站',planHeading);
   const remaining=el('span',null,planHeading);
@@ -148,7 +156,7 @@ function trainMotionView(trip, host) {
     });
     remaining.textContent=finished ? '行程结束' : '剩余 '+calls.filter((s,i)=>i>0 && s.arrive!==null && s.arrive>sec).length+' 站';
   }
-  const relations = trainRelationView(trip,host);
+  let edges, focusedKey;
   function removeMarker() {
     if (markerSource && map.getSource('selected-train')===markerSource) {
       // Detach cached symbol tiles before the regional renderer resumes.
@@ -165,8 +173,9 @@ function trainMotionView(trip, host) {
     run=null;
     lastSecond=null;
     removeMarker();
-    relations.clear();
-    host.hidden=true;
+    focusedKey=null;
+    regionLive.setFocus(null);
+    hero.hidden=details.hidden=true;
     changeCamera('static');
   }
   function draw(updatePanel=true) {
@@ -188,7 +197,13 @@ function trainMotionView(trip, host) {
       }
     }
     if (updatePanel) {
-      relations.draw(run,t,sample);
+      const day=liveTimeline.iso(run.serviceMidnight).slice(0,10);
+      const key=sample ? regionLive.runKey(trip.id,day) : null;
+      if (focusedKey!==key) {
+        if (sample) edges ??= regionLive.routeEdges(trip.geometry,trip.inferredLegs);
+        regionLive.setFocus(sample ? {selected:key,id:trip.id,day,edges} : null);
+        focusedKey=key;
+      }
       updateJourney(t,sample);
       follow.hidden=navigation.hidden=!active || !sample || !map;
       jump.hidden=active;
@@ -255,13 +270,12 @@ function trainMotionView(trip, host) {
       clear();
       run=selected;
       heading=null;
-      relations.load(run);
       model ??= makeTrainMotion(trip);
-      host.hidden=false;
+      hero.hidden=details.hidden=false;
       draw();
       if (followView.autoFollow) changeCamera('map');
       else if (trip.liveLine==='catalog' && position && map) {
-        map.easeTo({center:position,zoom:Math.max(9,map.getZoom()),duration:350});
+        map.easeTo({center:position,offset:[0,-mobileFocusShift()],zoom:Math.max(9,map.getZoom()),duration:350});
       }
       return;
     }

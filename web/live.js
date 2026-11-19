@@ -171,8 +171,8 @@ const liveTimeline = (() => {
     if (direction && animationFrame==null) animationFrame=requestAnimationFrame(animate);
   }
 
-  function attachTrip(trip, host, serviceDate) {
-    host.className = 'live-runs';
+  function attachTrip(trip, motionHost, serviceDate) {
+    const host = el('div', null, motionHost, 'live-runs');
     const start = timetableSeconds(trip.stops[0]?.departure);
     const end = timetableSeconds(trip.stops.at(-1)?.arrival);
     const runs = [];
@@ -194,10 +194,8 @@ const liveTimeline = (() => {
       name: stop.name, arrival: timetableSeconds(stop.arrival), departure: timetableSeconds(stop.departure)
     })).filter(stop => stop.arrival !== null && stop.departure !== null);
     detachTrip();
-    const motionHost = el('div');
-    host.after(motionHost);
     const locked = runs.find(run => iso(run.serviceMidnight).slice(0,10) === serviceDate);
-    card = {trip, host, runs, calls, overlapping, initial: !locked, selected: locked?.key ?? null, motion:trainMotionView(trip,motionHost)};
+    card = {trip, host, runs, calls, overlapping, initial: !locked, selected: locked?.key ?? null, motion:trainMotionView(trip,motionHost,host)};
     render();
   }
 

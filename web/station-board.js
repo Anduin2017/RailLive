@@ -1,12 +1,9 @@
 'use strict';
 
 function openStationBoard(station) {
-  const boardWindow = el('aside', null, document.body, 'station-board-window');
+  const boardWindow = el('aside', null, sidebar, 'station-board-window');
   boardWindow.id = 'station-board';
   boardWindow.setAttribute('aria-label', station.name + '到发时刻表');
-  const header = el('header', null, boardWindow, 'station-board-header');
-  el('strong', station.name, header);
-  el('span', '到发时刻表', header);
   const host = el('div', null, boardWindow, 'station-live');
   if (!station.hasTimetable) {
     el('p', '本站尚未关联本地时刻表。', host, 'meta');
