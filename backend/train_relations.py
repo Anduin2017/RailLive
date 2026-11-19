@@ -216,24 +216,41 @@ def ordered_schedule(trip):
         (a==calls[i-1][2] and s==calls[i-1][0])) for i,(s,a,d) in enumerate(calls))
 
 
+@lru_cache(maxsize=1)
+def comparison_index():
+    by_stop, by_shape = defaultdict(set), defaultdict(set)
+    for trip, (_, _, shape, calls) in timetable()[0].items():
+        by_shape[shape].add(trip)
+        for station, _, _ in calls:
+            by_stop[station].add(trip)
+    return by_stop, by_shape, {trip: i for i, trip in enumerate(timetable()[0])}
+
+
 def overview(db, trip, day):
+    """With day=None, compile all relative departures for later calendar filtering."""
     runs,calendar,names=timetable()
     number,service,shape,calls=runs[trip]
-    if day not in calendar[service]: return None
+    if day is not None and day not in calendar[service]: return None
     if not ordered_schedule(trip): return dict(peers=[],events=[])
     own,anchors=profile(db,trip)
     routes=shared_routes(shape)
     lookup={s:(i,a,d) for i,(s,a,d) in enumerate(calls) if sum(p[0]==s for p in calls)==1}
     start,end=calls[0][2],calls[-1][1]
     peers=[]; events=[]
-    for other,(label,other_service,other_shape,visits) in runs.items():
+    by_stop, by_shape, source_order = comparison_index()
+    common_counts = Counter(other for stop in lookup for other in by_stop[stop])
+    candidates = {other for other, count in common_counts.items() if count >= 2}
+    for other_shape in routes:
+        candidates.update(by_shape[other_shape])
+    for other in sorted(candidates, key=source_order.__getitem__):
+        label,other_service,other_shape,visits = runs[other]
         if not ordered_schedule(other): continue
         paths=routes.get(other_shape,[])
         common=[(lookup[s][0],j,s) for j,(s,_,_) in enumerate(visits) if s in lookup]
         if not paths and len(common)<2: continue
         low=(start-visits[-1][1])//DAY+1
         high=(end-1-visits[0][2])//DAY
-        dates=[offset for offset in range(low,high+1) if day+offset in calendar[other_service]
+        dates=[offset for offset in range(low,high+1) if (day is None or day+offset in calendar[other_service])
                and (offset or other!=trip)]
         if not dates: continue
         repeated=Counter(s for _,_,s in common)

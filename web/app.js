@@ -234,8 +234,9 @@ function action(parent, text, callback, className) {
   return button;
 }
 
-async function get(path) {
-  const response = await fetch(path);
+async function get(path, options) {
+  if (window.staticRailData && path.startsWith('/api/')) return staticRailData.get(path);
+  const response = await fetch(path, options);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
@@ -769,7 +770,9 @@ function showLine(name, origin = '', station = null, focusView = followView.line
 
 function archivedRecord(parent, kind, identifier) {
   const link = el('a', '查看离线原始资料', parent);
-  link.href = '/api/source/' + kind + '/' + encodeURIComponent(identifier);
+  link.href = window.staticRailData
+    ? './records/source/' + kind + '/' + encodeURIComponent(identifier) + '.json'
+    : '/api/source/' + kind + '/' + encodeURIComponent(identifier);
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
 }
@@ -1135,8 +1138,8 @@ async function start() {
     el('p', '当前浏览器无法使用 WebGL，时刻表仍可搜索。', panel);
     return;
   }
-  const [style,stationAtlas] = await Promise.all([get('/map/split-style.json'),stationSymbols.prepare()]);
-  style.sources['rail-detail'] = {type: 'geojson', data: new URL('/map/rail-detail.geojson', location.href).href};
+  const [style,stationAtlas] = await Promise.all([get('./map/split-style.json'),stationSymbols.prepare()]);
+  style.sources['rail-detail'] = {type: 'geojson', data: new URL('./map/rail-detail.geojson', document.baseURI).href};
   style.layers.push(
     {id: 'rail-detail-track', type: 'line', source: 'rail-detail', minzoom: 9,
       filter: ['==', '$type', 'LineString'], paint: {'line-color': '#ff3300', 'line-width': 1.75}},
@@ -1155,10 +1158,12 @@ async function start() {
   const railwayLayers = style.layers.filter(layer => layer['source-layer'] === 'rail' || layer.source === 'rail-detail');
   const railwayLabels = railwayLayers.filter(layer => layer.type === 'symbol').map(layer => layer.id);
   const railwayTracks = railwayLayers.filter(layer => layer.type === 'line').map(layer => layer.id);
-  style.sprite = location.origin + style.sprite;
-  style.glyphs = location.origin + style.glyphs;
+  const siteRoot = new URL('.', document.baseURI).href;
+  const localAsset = path => siteRoot + path.replace(/^\//, '');
+  style.sprite = localAsset(style.sprite);
+  style.glyphs = localAsset(style.glyphs);
   for (const source of Object.values(style.sources)) {
-    if (source.tiles) source.tiles=source.tiles.map(url=>location.origin+url);
+    if (source.tiles) source.tiles=source.tiles.map(localAsset);
   }
   const layers=style.layers, scenerySource=style.sources.scenery;
   if (baseMode==='blank') {

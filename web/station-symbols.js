@@ -3,7 +3,7 @@
 const stationSymbols = (() => {
   const baseLayers=['station-pax-245-LT','station-pax-01-LT'];
   const nameLayers=baseLayers.map(id=>id+'-name');
-  const folder='/map/station-symbols/';
+  const folder='./map/station-symbols/';
   let manifest, activeDay, activeProfile, ready=false;
   const cache=new Map();
   const key=['to-string',['coalesce',['get','kid'],['get','id'],'']];

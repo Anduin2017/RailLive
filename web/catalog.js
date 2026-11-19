@@ -232,9 +232,7 @@ function setupCatalog() {
     count.textContent = '正在读取本地索引…';
     for (const button of pagination) button.disabled = true;
     try {
-      const response = await fetch(`/api/catalog/${kind}?${params}`, {signal: request.signal});
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      const data = await get(`/api/catalog/${kind}?${params}`, {signal: request.signal});
       if (request.signal.aborted) return;
       body.replaceChildren();
       for (const item of data.rows) {

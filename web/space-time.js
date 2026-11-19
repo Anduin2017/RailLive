@@ -16,7 +16,11 @@ const spaceTime = (() => {
     const res=await fetch(url,{signal});
     if (!res.ok) throw Error(res.status);
     const blob=await res.blob();
-    const decoded=new Response(blob.stream().pipeThrough(new DecompressionStream('gzip')));
+    // Some CDNs mark stored .gz files as Content-Encoding: gzip, in which
+    // case fetch has already decoded the payload. Geometry is binary in both cases.
+    const magic=new Uint8Array(await blob.slice(0,2).arrayBuffer());
+    const decoded=new Response(magic[0]===31 && magic[1]===139
+      ? blob.stream().pipeThrough(new DecompressionStream('gzip')) : blob);
     if(url.includes('/g/')) {
       const words=new Int32Array(await decoded.arrayBuffer());
       const blocks=new Map();
@@ -31,10 +35,10 @@ const spaceTime = (() => {
   }
   function init() {
     if (!boot) boot=(async()=>{
-      const r=await fetch('/space-time/manifest.json',{cache:'no-cache'});
+      const r=await fetch('./space-time/manifest.json',{cache:'no-cache'});
       if (!r.ok) throw Error(r.status);
       manifest=await r.json();
-      base='/space-time/'+manifest.version+'/';
+      base='./space-time/'+manifest.version+'/';
       catalog=(await read(base+'catalog.gz')).data;
       catalog.base=Date.parse(catalog.base+'T00:00:00+08:00');
       catalog.days=new Set();

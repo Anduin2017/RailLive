@@ -2,6 +2,28 @@
 
 在地图上按北京时间回放铁路时刻表。点车站可以看下一批到发列车，点车次可以跟随它沿线路行驶，或拖动时间轴观察同一段铁路一天中的车流。位置和速度由时刻表及径路推演。
 
+## 编译成纯静态网站
+
+准备好运行快照后，在仓库根目录执行以下命令（Linux，Python 3.11 或以上）：
+
+```sh
+python3 tools/build_static.py --snapshot snapshot --output dist/site
+```
+
+也可以直接使用已导出的运行包，例如把 `--snapshot` 指向 `dist/current`。编译器检查当前快照的索引，预先生成车站、线路、班次、搜索与车序数据，并将页面、地图、当前版本时空片和署名文件复制进目标目录。`--jobs 4` 可降低同时编译的进程数。输出目录须是新目录，编译成功后才会出现在指定位置。
+
+**把 `dist/site/` 的内容整体上传到支持目录首页的静态托管或 CDN 源站即可。** 可部署在域名根目录或子目录，例如 `https://example.org/rail/`。文件服务器按路径返回文件即可，无需运行 Python、Node.js、数据库、边缘函数或 API 路由。选择卫星模式时，浏览器会访问 EOX 的影像服务。
+
+可以在本地预览同一份产物：
+
+```sh
+python3 -m http.server 8090 --bind 127.0.0.1 --directory dist/site
+```
+
+打开 <http://127.0.0.1:8090/>。静态站按需读取详情和时空片。列车运动、到发倒计时、日期筛选、索引排序和时钟播放都在浏览器中执行。
+
+更新时建议把新站上传到独立版本目录，再切换入口；也可以在同一目录先上传数据文件，最后更新清单和网页。按内容散列命名的 `records/objects/` 和带版本号的时空片目录可长期缓存。`index.html`、`records/index.json`、`space-time/manifest.json` 及其他同名可变资源应允许重新验证。单次发布含大量小文件，请确认托管服务的文件数限额。用于公开 CDN 分发的数据与地图许可见[第三方说明](THIRD_PARTY.md)。
+
 ## Docker 运行
 
 镜像包含 Python 服务、网页和地图渲染库。运行需要一份与代码兼容的独立快照，包含 `data/`、`map/` 和 `space-time/`。已有快照可按下节迁移。当前仓库没有提供整套数据的公共下载地址。仅有 GTFS 压缩包还需补齐底图、站线资料并构建索引。[快照维护说明](docs/snapshot.md)
@@ -51,6 +73,14 @@ python3 build/app/serve.py
 ```sh
 python3 -m unittest discover -s tests/snapshot -p 'test_*.py'
 python3 tests/snapshot/verify_space_tiles.py
+```
+
+静态发布前可从仓库根目录运行以下检查。前两项核对完整静态记录与时空片，最后一项通过专用 Chromium 在静态预览端口对比原快照查询结果并操作地图：
+
+```sh
+python3 tests/snapshot/verify_static_records.py dist/site
+python3 tests/snapshot/verify_space_tiles.py dist/site/space-time
+python3 tests/browser/check_static_site.py 8090
 ```
 
 浏览器测试连接一个专用 Chromium 调试实例，例如以独立用户目录和 `--remote-debugging-port=19851` 启动 Chromium，再执行 `python3 tests/browser/check_train_camera_browser.py 8080`。环境变量 `RAILS_CDP_PORT` 可覆盖调试端口。[历史性能基准及复测方法](docs/space-time.md)
