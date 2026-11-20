@@ -6,6 +6,8 @@ import gzip
 import json
 import math
 
+from corridor_paths import CorridorNetwork
+from departure_paths import CONVENTIONAL_LINES, snapshot_conventional_prefixes
 from train_relations import metres, point, seconds, unpack
 
 
@@ -40,8 +42,23 @@ def infer_routes(src, out):
         return dist, coords
 
     @lru_cache(maxsize=None)
-    def segment(station,dest):
+    def corridors():
+        return CorridorNetwork()
+
+    @lru_cache(maxsize=None)
+    def segment(station,dest,line):
         routes = sorted(candidates[station,dest])
+        if line:
+            eligible=[]
+            for route in routes:
+                shape,start,end=route
+                dist,coords=path(shape)
+                section=[point((dist,coords),start),
+                         *coords[bisect_right(dist,start):bisect_left(dist,end)],
+                         point((dist,coords),end)]
+                if not corridors().follows_parallel_high_speed(section,line):
+                    eligible.append(route)
+            routes=eligible
         if not routes:
             return None
         shape,start,end = routes[0]
@@ -60,10 +77,12 @@ def infer_routes(src, out):
         part = [point((dist,coords),start), *coords[bisect_right(dist,start):bisect_left(dist,end)], point((dist,coords),end)]
         return part, length, candidates[station,dest][routes[0]]
 
+    ordinary = snapshot_conventional_prefixes(src)
     for trip, number in missing:
         coords, legs = [], []
         for (station,_,dep),(dest,arr,_) in zip(calls[trip],calls[trip][1:]):
-            result = segment(station,dest)
+            line = CONVENTIONAL_LINES.get(frozenset((station,dest))) if number[:1] in ordinary else None
+            result = segment(station,dest,line)
             if not result or arr<=dep or result[1]*3.6/(arr-dep)>(350 if number[:1] in 'GDC' else 200):
                 legs.append(None)
                 continue

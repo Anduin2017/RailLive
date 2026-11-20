@@ -19,8 +19,15 @@ def pack(value):
 def fingerprint():
     h=hashlib.sha256()
     for path in [DB, ROOT/'data/cnrail-graph.json.gz', ROOT/'data/line-facts.json', ROOT/'server.py',
-                 ROOT/'train-motion.js', ROOT/'relation-profile.cjs', ROOT/'infer_routes.py', Path(__file__)]:
+                 ROOT/'train-motion.js', ROOT/'relation-profile.cjs', ROOT/'infer_routes.py',
+                 ROOT/'departure_paths.py', ROOT/'corridor_paths.py', ROOT/'shape_excursions.py',
+                 ROOT/'index_rail_map.py', Path(__file__)]:
         h.update(hashlib.sha256(path.read_bytes()).digest())
+    # Donor eligibility also depends on the track classes in the source tiles.
+    tiles = ROOT/'map/tiles/8'
+    for tile in sorted(tiles.glob('*/*.pbf')):
+        h.update(tile.relative_to(tiles).as_posix().encode() + b'\0')
+        h.update(hashlib.sha256(tile.read_bytes()).digest())
     return h.hexdigest()
 
 
