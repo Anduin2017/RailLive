@@ -64,8 +64,8 @@ function stationStatsBars(parent, title, detail, groups, drill) {
 function stationStatsHourly(parent, trains, drill) {
   const series = [
     {kind:'through', label:'经停'},
-    {kind:'origin', label:'起点发出'},
-    {kind:'terminal', label:'终点到站'}
+    {kind:'origin', label:'始发'},
+    {kind:'terminal', label:'终到'}
   ];
   const hours = Array.from({length:24}, () => ({through:[], origin:[], terminal:[]}));
   let max = 0;

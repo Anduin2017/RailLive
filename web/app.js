@@ -815,6 +815,14 @@ function addStopBadges() {
   }, 'trip-stop-number');
 }
 
+function formatMainTracks(value) {
+  return String(value).replace(/\d+(?=[ \t]*$)/gm, count => {
+    if (count === '1') return '单线';
+    if (count === '2') return '双线';
+    return count + ' 线';
+  });
+}
+
 function showLine(name, origin = '', station = null, focusView = followView.line) {
   clearMapSelection();
   const fetchLine = (id, from = '') => get('/api/line/' + encodeURIComponent(id) + (from ? '?from=' + from : ''));
@@ -855,7 +863,7 @@ function showLine(name, origin = '', station = null, focusView = followView.line
     const facts = el('dl', null, panel, 'station-facts line-facts');
     for (const [label, value] of [
       ['铁路类型', line.railType === 'LINK' ? '联络线' : line.railType || '未收录'],
-      ['线路总数', details?.lines ?? '未收录'],
+      ['正线数', formatMainTracks(details?.lines ?? '未收录')],
       ['电气化', details?.electrification ?? '未收录'],
       ['设计时速', line.facts?.designSpeed || details?.design_speed || '未收录'],
       [line.facts?.lengthKm ? '全线长度' : '线路表末端里程',
@@ -946,7 +954,8 @@ function stationOverview(station, body) {
   const bureaus = [...new Set(station.lines.map(line => line.bureau).filter(Boolean))];
   const regions = [...new Set(station.lines.map(line => line.region).filter(Boolean))];
   for (const [label, value] of [
-    ['电报码', station.teleCode || (station.hasTimetable ? station.id : null)],
+    ['电报码', station.teleCode],
+    ['时刻表站点代码', station.hasTimetable && station.id !== station.teleCode ? station.id : null],
     ['同站时刻表编号', station.alternateCodes?.join('、')],
     ['运营', station.operators?.join('、') || bureaus.map(bureau => bureau === '香港' ? bureau : bureau + '局').join('、')],
     ['所在地区', station.location || regions.join('、')]
@@ -1051,7 +1060,7 @@ function stationTrainList(trains, body, initialKind = 'all') {
   const rows = [...trains].sort((a, b) => orderTime(a).localeCompare(orderTime(b)));
   const filters = el('div', null, body, 'station-filters');
   filters.setAttribute('role', 'group');
-  filters.setAttribute('aria-label', '列车类型');
+  filters.setAttribute('aria-label', '本站到发类型');
   const choices = [['all', '全部'], ...Object.entries(stationCallLabels)];
   const filterButtons = choices.map(([kind, label]) => {
     const count = kind === 'all' ? rows.length : rows.filter(train => train.kind === kind).length;
@@ -1096,7 +1105,7 @@ function renderStation(station) {
   if (!station.hasTimetable) {
     el('p', '本站尚未关联本地时刻表。', panel, 'meta');
     if (station.boardCandidate) {
-      action(panel, '查看同名同电报码车站的实时状态', () => {
+      action(panel, '查看同名同电报码车站的时刻表', () => {
         showStation(station.boardCandidate);
       });
     }

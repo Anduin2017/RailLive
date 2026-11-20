@@ -5,9 +5,9 @@ const catalogViews = {
     columns: [
       ['name', '线路'], ['type', '类型'], ['origin', '起点'], ['destination', '终点'],
       ['stations', '沿线站点', true], ['length', '里程跨度', true], ['speed', '设计时速', true],
-      ['tracks', '股道', true], ['electric', '电气化']
+      ['tracks', '正线数', true], ['electric', '电气化']
     ],
-    note: '里程优先用已核实的全线长度，其余取首末里程差。分段时速和股道按最大值排序。'
+    note: '里程优先用已核实的全线长度，其余取首末里程差。分段时速和正线数按最大值排序。'
   },
   trains: {
     title: '所有车次', search: '搜索车次号，如 G12', open: id => showTrip(id, undefined, 'catalog'), sort: 'name', order: 'asc',
@@ -270,6 +270,7 @@ function setupCatalog() {
     if (field === 'distanceKm') cell.textContent = `${metric.format(value)} km`;
     else if (field === 'averageKmh' || field === 'peakKmh') cell.textContent = `${metric.format(value)} km/h`;
     else if (field === 'length') cell.textContent = `${number.format(value)} km`;
+    else if (field === 'tracks') cell.textContent = formatMainTracks(value);
     else if (field === 'duration') cell.textContent = formatDuration(value);
     else if (field === 'arrival' || field === 'departure') cell.textContent = showTime(value);
     else cell.textContent = typeof value === 'number' ? number.format(value) : value;
