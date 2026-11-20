@@ -14,8 +14,10 @@ from index_rail_map import ROOT, coordinate, _named_features
 import sqlite3
 import zlib
 
-from shape_excursions import cumulative, early_station_pass, project_segment, simplify_leg
+from shape_excursions import cumulative, early_station_pass, project_segment, simplify_leg, station_hits
 from train_relations import TIMETABLE, TRACKS, metres, point, shape_path, unpack
+
+STATION_ACCESS_METRES = 1800
 
 def geographic(position):
     x,y=position
@@ -34,6 +36,27 @@ def same_corridor(first, second):
     return all(metres(point((a, first), a[-1]*i/steps),
                       point((b, second), b[-1]*i/steps)) <= 1500
                for i in range(steps+1))
+
+
+def same_track_alignment(first,second):
+    """Compare the track in travel order, allowing different station access lengths."""
+    a,b=cumulative(first),cumulative(second)
+    length=min(a[-1],b[-1])
+    if length<4*STATION_ACCESS_METRES or abs(a[-1]-b[-1])>max(1500,.05*length):
+        return False
+
+    def follows(distances,path,other_distances,other):
+        previous=-math.inf
+        end=int(distances[-1])-STATION_ACCESS_METRES
+        for at in chain(range(STATION_ACCESS_METRES,end,350),(end,)):
+            location=point((distances,path),at)
+            hit=min(station_hits(location,other,other_distances,500),default=None)
+            if hit is None or hit[1]+100<previous:
+                return False
+            previous=max(previous,hit[1])
+        return True
+
+    return follows(a,first,b,second) and follows(b,second,a,first)
 
 
 class TrackNetwork:
@@ -56,7 +79,7 @@ class TrackNetwork:
         x,y=self.cell(p)
         options=(q for i in range(x-1,x+2) for j in range(y-1,y+2) for q in self.grid[i,j])
         q=min(options,key=lambda q:metres(p,q),default=None)
-        return q if q and metres(p,q)<1800 else None
+        return q if q and metres(p,q)<STATION_ACCESS_METRES else None
 
     @lru_cache(maxsize=12000)
     def route(self,start,end):
@@ -266,7 +289,14 @@ class TileRoutes:
                     or early_station_pass(alternative,ds,end) is not None):
                 continue
             if reference and not same_corridor(reference,alternative):
-                continue
+                # Station access and extra lengths within a junction can
+                # shift every fractional sample on an otherwise shared route.
+                if (common
+                        or not corridors.connected_station_route(alternative,origin_lines,destination_lines)
+                        or not all(corridors.station_line_evidence(reference,origin_lines,destination_lines)[:2])
+                        or not same_track_alignment(reference,alternative)):
+                    continue
+                return source,alternative
             if common:
                 direct=any(corridors.station_line_support(alternative,(line,),(line,))
                            and self.fits_line(line,s,n,alternative,check_mileage=False)

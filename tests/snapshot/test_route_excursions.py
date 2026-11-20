@@ -10,6 +10,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'build/app'))
 from line_live import indexed_profile
 from corridor_paths import CorridorNetwork
+from departure_paths import same_track_alignment
 from region_live import trip_display
 from train_relations import timetable
 from shape_excursions import cumulative, repair_shapes, simplify_leg, station_hits
@@ -67,6 +68,23 @@ class RouteExcursionTest(unittest.TestCase):
         e = (115.01,35.02)
         net.tags[b,e] = {end}
         self.assertFalse(net.connected_station_route([a,b,e],['A线'],['C线']))
+
+    def test_track_alignment_distinguishes_station_access_from_another_corridor(self):
+        a,b,c = (115,35),(115.2,35),(115.4,35)
+        direct = [a,b,c]
+        other_access = [a,(115.004,35.008),(115.014,35),b,c]
+        self.assertTrue(same_track_alignment(direct,other_access))
+        parallel = [a,(115.02,35.01),(115.38,35.01),c]
+        self.assertFalse(same_track_alignment(direct,parallel))
+        turnback = [a,(115.106,35),(115.1,35),b,c]
+        self.assertFalse(same_track_alignment(direct,turnback))
+
+    def test_xian_east_to_xunyang_north_fallback_stays_on_xikang(self):
+        for trip,seq in [('020000K54830',30),('760000K38690',8),('490000Z31803',12)]:
+            with self.subTest(trip=trip):
+                leg = next(leg for leg in trip_display(trip) if leg['seq']==seq)
+                self.assertEqual(leg['kind'], '底图接轨推测')
+                self.assertTrue(175000<leg['path'][-1][0]<181000)
 
     def test_documented_detour_is_kept(self):
         # A scheduled in-and-out branch with matching mileage stays intact.

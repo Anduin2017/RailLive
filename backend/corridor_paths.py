@@ -9,7 +9,7 @@ import math
 from collections import defaultdict
 from functools import lru_cache
 
-from departure_paths import SegmentNetwork, geographic, project_segment
+from departure_paths import STATION_ACCESS_METRES, SegmentNetwork, geographic, project_segment
 from index_rail_map import ROOT, _named_features, coordinate
 from shape_excursions import cumulative
 from train_relations import metres, point
@@ -114,7 +114,7 @@ class CorridorNetwork:
         if not mapped: return False
         first,last=mapped[0],mapped[-1]
         # Only the station-to-track access may lack a mapped edge.
-        if distances[first]>1800 or distances[-1]-distances[last+1]>1800:
+        if distances[first]>STATION_ACCESS_METRES or distances[-1]-distances[last+1]>STATION_ACCESS_METRES:
             return False
         if not all(names[first:last+1]):
             return False
