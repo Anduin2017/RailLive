@@ -9,6 +9,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'build/app'))
 from line_live import indexed_profile
+from corridor_paths import CorridorNetwork
 from region_live import trip_display
 from train_relations import timetable
 from shape_excursions import cumulative, repair_shapes, simplify_leg, station_hits
@@ -44,6 +45,28 @@ class RouteExcursionTest(unittest.TestCase):
         feidong = next(station_hits((117.4799073,31.8640865),path,distances,1500))
         self.assertLess(quanjiao[1],feidong[1])
         self.assertFalse(any(station_hits((118.3860019,31.349784),path,distances,2000)))
+
+    def test_yangzhou_to_hefei_uses_connected_cross_line_corridor(self):
+        leg = next(leg for leg in trip_display('5l000D556202') if leg['seq']==7)
+        self.assertEqual(leg['kind'], '底图接轨推测')
+        path = [p[1:] for p in leg['path']]
+        distances = [p[0] for p in leg['path']]
+        self.assertTrue(215000<distances[-1]<225000)
+        self.assertTrue(any(station_hits((118.277426,32.0623412),path,distances,1500)))
+        self.assertFalse(any(station_hits((118.3860019,31.349784),path,distances,2000)))
+
+    def test_cross_line_route_requires_mapped_connections(self):
+        a,b,c,d = (115,35),(115.01,35),(115.02,35),(115.03,35)
+        net = CorridorNetwork.__new__(CorridorNetwork)
+        start,middle,end = ('A线','R'),('B线','R'),('C线','R')
+        net.tags = {(a,b):{start},(b,c):{middle},(c,d):{end}}
+        self.assertFalse(net.station_line_support([a,b,c,d],['A线'],['C线']))
+        self.assertTrue(net.connected_station_route([a,b,c,d],['A线'],['C线']))
+        del net.tags[b,c]
+        self.assertFalse(net.connected_station_route([a,b,c,d],['A线'],['C线']))
+        e = (115.01,35.02)
+        net.tags[b,e] = {end}
+        self.assertFalse(net.connected_station_route([a,b,e],['A线'],['C线']))
 
     def test_documented_detour_is_kept(self):
         # A scheduled in-and-out branch with matching mileage stays intact.

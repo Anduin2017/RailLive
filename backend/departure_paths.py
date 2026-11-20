@@ -274,7 +274,18 @@ class TileRoutes:
                 if not direct and not any(self.fits_line(line,s,n,alternative) for line in common):
                     continue
             elif not corridors.station_line_support(alternative,origin_lines,destination_lines):
-                continue
+                if not reference:
+                    continue
+                origin,destination,_=corridors.station_line_evidence(alternative,origin_lines,destination_lines)
+                rs=cumulative(reference)
+                if (not (origin and destination)
+                        or rs[-1]*3.6>ceiling*cruise_seconds
+                        or early_station_pass(reference,rs,end) is not None
+                        or not corridors.connected_station_route(reference,origin_lines,destination_lines)):
+                    continue
+                # The two routes agree. Publish the one with explicit mapped
+                # connections, without using the inferred joins of the other.
+                return source,reference
             return source,alternative
         if reference:
             return '径路不确定',path

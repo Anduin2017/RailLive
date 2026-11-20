@@ -11,7 +11,15 @@ from functools import lru_cache
 
 from departure_paths import SegmentNetwork, geographic, project_segment
 from index_rail_map import ROOT, _named_features, coordinate
-from train_relations import metres
+from shape_excursions import cumulative
+from train_relations import metres, point
+
+
+def turn_exceeds(a, b, c, cosine):
+    scale=math.cos(math.radians(b[1]))
+    dx,dy=(b[0]-a[0])*scale,b[1]-a[1]
+    ux,uy=(c[0]-b[0])*scale,c[1]-b[1]
+    return dx*ux+dy*uy < cosine*math.hypot(dx,dy)*math.hypot(ux,uy)
 
 
 class CorridorNetwork:
@@ -73,14 +81,13 @@ class CorridorNetwork:
 
         return min(cost(name, kind) for name, kind in tags)
 
-    def station_line_support(self,path,origin_lines,destination_lines):
+    def station_line_evidence(self,path,origin_lines,destination_lines):
         """Evidence on mapped edges, excluding inferred joins and unnamed track."""
-        length=sum(metres(a,b) for a,b in zip(path,path[1:]))
-        if not length: return False
-        along=supported=0.
+        distances=cumulative(path)
+        length=distances[-1]
+        supported=0.
         origin=destination=False
-        for a,b in zip(path,path[1:]):
-            span=metres(a,b)
+        for i,(a,b) in enumerate(zip(path,path[1:])):
             tags=self.tags.get(tuple(sorted((a,b))),())
             names=[name for name,_ in tags if name]
             # Tile names can omit the section qualifier after the line's name.
@@ -88,11 +95,39 @@ class CorridorNetwork:
                       for name in names for line in origin_lines)
             last=any(line==name or (name.endswith('线') and line.startswith(name))
                      for name in names for line in destination_lines)
-            if first or last: supported+=span
-            if first and along<15000: origin=True
-            if last and length-along-span<15000: destination=True
-            along+=span
-        return origin and destination and supported>=.85*length
+            if first or last: supported+=distances[i+1]-distances[i]
+            if first and distances[i]<15000: origin=True
+            if last and length-distances[i+1]<15000: destination=True
+        return origin,destination,supported/length if length else 0.
+
+    def station_line_support(self,path,origin_lines,destination_lines):
+        origin,destination,share=self.station_line_evidence(path,origin_lines,destination_lines)
+        return origin and destination and share>=.85
+
+    def connected_station_route(self,path,origin_lines,destination_lines):
+        """Check a cross-line route on original named track, without inferred joins."""
+        route=[p for i,p in enumerate(path) if i==0 or p!=path[i-1]]
+        distances=cumulative(route)
+        names=[{name for name,_ in self.tags.get(tuple(sorted((a,b))),()) if name}
+               for a,b in zip(route,route[1:])]
+        mapped=[i for i,lines in enumerate(names) if lines]
+        if not mapped: return False
+        first,last=mapped[0],mapped[-1]
+        # Only the station-to-track access may lack a mapped edge.
+        if distances[first]>1800 or distances[-1]-distances[last+1]>1800:
+            return False
+        if not all(names[first:last+1]):
+            return False
+        origin,destination,_=self.station_line_evidence(route,origin_lines,destination_lines)
+        if not (origin and destination): return False
+        # A shared tile vertex by itself also occurs at some crossings. A
+        # cross-line movement must agree with the direction of both edges.
+        for i in range(first+1,last+1):
+            if names[i-1].isdisjoint(names[i]) and turn_exceeds(*route[i-1:i+2],.5):
+                return False
+        axis=distances,route
+        return not any(turn_exceeds(point(axis,at-350),point(axis,at),point(axis,at+350),-.5)
+                       for at in range(350,int(distances[-1])-350,100))
 
     def station_route(self,s,n,start,end,fast,lines):
         if {s,n} in ({'VUQ','XJQ'}, {'VUQ','ZWQ'}):
