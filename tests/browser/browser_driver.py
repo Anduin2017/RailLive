@@ -1,7 +1,7 @@
 import asyncio,json,os,urllib.request
 import websockets
 
-async def drive(port,scenario,viewport=None):
+async def drive(port,scenario,viewport=None,init_script=None):
     debug_port=int(os.environ.get('RAILS_CDP_PORT',19851))
     tab=next(tab for tab in json.load(urllib.request.urlopen(f'http://127.0.0.1:{debug_port}/json/list')) if tab.get('type')=='page')
     async with websockets.connect(tab['webSocketDebuggerUrl'],max_size=10**7) as ws:
@@ -29,6 +29,8 @@ async def drive(port,scenario,viewport=None):
         await call('Page.bringToFront')
         if viewport:
             await call('Emulation.setDeviceMetricsOverride',width=viewport[0],height=viewport[1],deviceScaleFactor=1,mobile=False)
+        if init_script:
+            await call('Page.addScriptToEvaluateOnNewDocument',source=init_script)
         await call('Page.navigate',url='http://127.0.0.1:'+port)
         await wait("document.body?.dataset.mapReady==='true'")
         try:

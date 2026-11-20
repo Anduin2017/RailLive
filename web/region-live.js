@@ -4,7 +4,7 @@ const regionLive = (() => {
   const id='region-trains', layers=['region-count','region-label','region-heading','region-dot'];
   const status=document.querySelector('#region-status');
 
-  let last='', focus, lastFocus;
+  let last='', focus, lastFocus, completeFrame;
   const runKey=(id,day)=>id+'/'+day;
   const empty=()=>({type:'FeatureCollection',features:[]});
 
@@ -84,6 +84,7 @@ const regionLive = (() => {
     }
     if (badges.size) syncBadges(new Map(),0);
     last='';
+    completeFrame=null;
     status.hidden=!message;
     status.textContent=message;
   }
@@ -183,20 +184,35 @@ const regionLive = (() => {
     const zoom=map.getZoom(), b=bounds();
     if (zoom<5.5 || b[2]-b[0]>18 || b[3]-b[1]>13) {reset('放大地图可看区域车流');return;}
     status.hidden=false;
-    const bucket=Math.floor(time/300000)*300000, rate=liveTimeline.playbackRate;
+    const rate=liveTimeline.playbackRate;
     const canvas=map.getCanvas();
     const dx=96*(b[2]-b[0])/Math.max(1,canvas.clientWidth);
     const dy=96*(b[3]-b[1])/Math.max(1,canvas.clientHeight);
     const entry=spaceTime.windowAt(time,[b[0]-dx,b[1]-dy,b[2]+dx,b[3]+dy],rate,()=>tick(liveTimeline.time()));
     const src=source();
-    if (!entry) {
-      if (last!=='waiting') src.setData(empty());
-      if (badges.size) syncBadges(new Map(),time);
-      last='waiting';
-      status.textContent='正在读取本时段区域车流…';
-      return;
+    const view=[zoom,...b,focus?.selected,boardSwitch.checked].join('/');
+    let loading='';
+    if (!entry?.complete) {
+      loading=spaceTime.outdated ? '地图数据已更新，请刷新页面继续播放' : '正在读取本时段区域车流…';
+      // During a handoff the old curves end at the five-minute boundary.
+      // Publishing a partial frame here makes still-running trains disappear.
+      if (completeFrame && completeFrame.view===view &&
+          Math.abs(time-completeFrame.time)<300000) {
+        const holding=loading+'（暂显 '+liveTimeline.iso(completeFrame.time).slice(11,19)+' 的位置）';
+        if (status.textContent!==holding) status.textContent=holding;
+        last='waiting';
+        return;
+      }
+      completeFrame=null;
+      if (!entry) {
+        if (last!=='empty') src.setData(empty());
+        if (badges.size) syncBadges(new Map(),time);
+        last='empty';
+        if (status.textContent!==loading) status.textContent=loading;
+        return;
+      }
     }
-    const tag=[entry.key,time,zoom,...b].join('/');
+    const tag=[entry.key,time,view,loading].join('/');
     if (!force && tag===last && focus===lastFocus) return;
     lastFocus=focus;
     last=tag;
@@ -257,7 +273,8 @@ const regionLive = (() => {
       return trainCarriages(head,at,coord,visibleTailStart(run,t));
     });
     src.setData({type:'FeatureCollection',features:visible});
-    const message=!entry.covered?'该日没有时刻表覆盖':zoom<8?'区域车流 · 点击聚合数字放大':'区域车流 · 车身尖纹指向行进方向'+(boardSwitch.checked?'，▲ 待发倒计时，▼ 终到后计时':'');
+    if (entry.complete) completeFrame={view,time};
+    const message=loading || (!entry.covered?'该日没有时刻表覆盖':zoom<8?'区域车流 · 点击聚合数字放大':'区域车流 · 车身尖纹指向行进方向'+(boardSwitch.checked?'，▲ 待发倒计时，▼ 终到后计时':''));
     if (status.textContent!==message) status.textContent=message;
   }
   function selectPoint(event) {
