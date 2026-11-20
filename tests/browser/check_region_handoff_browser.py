@@ -17,8 +17,8 @@ for (const slot of [182,183,185]) {
 const rawFetch=window.fetch.bind(window);
 window.fetch=async (url,...args)=>{
   const path=new URL(url,location.href).pathname;
-  const match=path.match(/\\/space-time\\/[^/]+\\/(?:120|121)_31\\/(\\d+)\\.gz$/);
-  const slot=match && Number(match[1]);
+  const [cell,file]=path.split('/').slice(-2);
+  const slot=['120_31','121_31'].includes(cell) ? Number(file.split('.')[0]) : null;
   if (gates.has(slot)) {
     await gates.get(slot).promise;
     if (slot===182) return new Response(null,{status:404});
@@ -34,7 +34,8 @@ window.fetch=async (url,...args)=>{
 
 
 async def check(ev, wait):
-    await ev("""window.base=liveTimeline.midnight('2026-11-20')+15*3600000;
+    await ev("""if(typeof releaseSlot!=='function') throw Error('tile gates did not load');
+      window.base=liveTimeline.midnight('2026-11-20')+15*3600000;
       window.seek=seconds=>liveTimeline.jump(base+seconds*1000);
       window.heads=()=>map.getSource('region-trains')?._data.features.filter(f=>!f.properties.car)||[];
       window.statusText=()=>document.querySelector('#region-status').textContent;
@@ -44,7 +45,7 @@ async def check(ev, wait):
       seek(1497);void map.jumpTo({center:toMapCoordinates([120.889,31.371]),zoom:12.25})""")
     for start, rate, slot in [(1497,1,185),(1203,-1,183)]:
         await ev(f'seek({start})')
-        await wait("spaceTime.stats.complete && heads().some(f=>f.properties.number==='G7015' || f.properties.number==='G23')")
+        await wait("spaceTime.stats.complete && heads().length>2")
         await ev(f'direction({rate})')
         await wait("!spaceTime.stats.complete && statusText().includes('暂显')")
         held = await ev('heads()')
