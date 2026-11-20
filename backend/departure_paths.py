@@ -19,6 +19,20 @@ from train_relations import TIMETABLE, TRACKS, metres, point, shape_path, unpack
 
 STATION_ACCESS_METRES = 1800
 
+# Confirmed parallel passenger corridors. The same station codes serve both
+# routes, so calling at both stations cannot identify a donor's alignment.
+CONVENTIONAL_LINES = {
+    frozenset(('JBH', 'YWH')): '沪昆线',
+    frozenset(('WHH', 'ECH')): '皖赣线',
+}
+
+
+def scheduled_conventional_line(station, destination, number):
+    if number[:1] in {'K', 'T', 'Z'} or number[:1].isdigit():
+        return CONVENTIONAL_LINES.get(frozenset((station, destination)))
+    return None
+
+
 def geographic(position):
     x,y=position
     x+=5.116568470
@@ -231,6 +245,23 @@ class TileRoutes:
                         for (a,ka),(b,kb) in zip(stops,stops[1:])):
                     return '站序示意',[p for p,_ in stops]
         return '站间示意',[start,end]
+
+    @lru_cache(maxsize=256)
+    def conventional_station_path(self,corridors,s,n,start,end,line):
+        if line not in self.visits[s] or line not in self.visits[n]:
+            return None
+        kind,path=self.route(s,n,start,end,True)
+        if kind!='底图推测' or not self.fits_line(line,s,n,path):
+            return None
+        # One search is restricted to conventional track, the other weights
+        # named edges on the published line. Check the station exits as well.
+        _,reference=corridors.station_route(s,n,start,end,False,(line,))
+        if not reference or not same_corridor(path,reference):
+            return None
+        origin,destination,_=corridors.station_line_evidence(path,(line,),(line,))
+        if origin and destination and not corridors.follows_parallel_high_speed(path,line):
+            return path
+        return None
 
     def conventional_parallel_route(self,corridors,s,n,path,duration,group):
         # In the Shanghai–Nanjing corridor both published routes list many
@@ -486,6 +517,15 @@ def save_fallbacks(out,runs,locations):
                     speed=sum(metres(a,b) for a,b in zip(path,path[1:]))*3.6/(arr-dep)
                     if speed>(380 if fast else 220):
                         raise ValueError(f'{trip} {s} → {n}: implausible corridor speed {speed:.1f}')
+            line=scheduled_conventional_line(s,n,runs[trip][0])
+            if line and corridors.follows_parallel_high_speed(path,line):
+                replacement=tiles.conventional_station_path(corridors,s,n,start,end,line)
+                distances=cumulative(replacement) if replacement else None
+                if (distances and distances[-1]*3.6<=200*(arr-dep-min(60,(arr-dep)/4))
+                        and early_station_pass(replacement,distances,end) is None):
+                    kind,path='底图推测',replacement
+                else:
+                    kind='径路不确定'
             if kind in {'时刻推算','路网推测'}:
                 mileages=tiles.station_distances(s,n)
                 cleaned=simplify_leg([tuple(p) for p in path], arr-dep,
