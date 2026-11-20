@@ -23,6 +23,7 @@ STATION_ACCESS_METRES = 1800
 # routes, so calling at both stations cannot identify a donor's alignment.
 CONVENTIONAL_LINES = {
     frozenset(('JBH', 'YWH')): '沪昆线',
+    frozenset(('QEH', 'JUH')): '沪昆线',
     frozenset(('WHH', 'ECH')): '皖赣线',
 }
 
@@ -253,18 +254,33 @@ class TileRoutes:
                     return '站序示意',[p for p,_ in stops]
         return '站间示意',[start,end]
 
+    @lru_cache(maxsize=8)
+    def named_segments(self,line):
+        return SegmentNetwork(self.conventional[line])
+
     @lru_cache(maxsize=256)
     def conventional_station_path(self,corridors,s,n,start,end,line):
         if line not in self.visits[s] or line not in self.visits[n]:
             return None
-        kind,path=self.route(s,n,start,end,True)
-        if kind!='底图推测' or not self.fits_line(line,s,n,path):
-            return None
-        # One search is restricted to conventional track, the other weights
-        # named edges on the published line. Check the station exits as well.
         _,reference=corridors.station_route(s,n,start,end,False,(line,))
-        if not reference or not same_corridor(path,reference):
+        if not reference:
             return None
+        kind,path=self.route(s,n,start,end,True)
+        if not (kind=='底图推测' and self.fits_line(line,s,n,path) and same_corridor(path,reference)):
+            # Between adjacent calls the published mileage can differ from the
+            # mapped length. A nearest tile vertex may even lie beyond a station.
+            # Project onto the named conventional rail itself and require the
+            # independent search on all tracks to agree throughout the leg.
+            if abs(self.visits[s][line]-self.visits[n][line])!=1:
+                return None
+            path=self.named_segments(line).projected_route(start,end)
+            if not path or max(metres(start,path[1]),metres(end,path[-2]))>250:
+                return None
+            ds,rs=cumulative(path),cumulative(reference)
+            if abs(ds[-1]-rs[-1])>100 or any(
+                    metres(point((ds,path),at),point((rs,reference),at))>100
+                    for at in range(0,int(min(ds[-1],rs[-1])),250)):
+                return None
         origin,destination,_=corridors.station_line_evidence(path,(line,),(line,))
         if origin and destination and not corridors.follows_parallel_high_speed(path,line):
             return path
@@ -526,13 +542,14 @@ def save_fallbacks(out,runs,locations):
                     if speed>(380 if fast else 220):
                         raise ValueError(f'{trip} {s} → {n}: implausible corridor speed {speed:.1f}')
             line=CONVENTIONAL_LINES.get(frozenset((s,n))) if number[:1] in ordinary else None
-            if line and corridors.follows_parallel_high_speed(path,line):
+            on_high_speed = line and corridors.follows_parallel_high_speed(path,line)
+            if line and (on_high_speed or kind=='路网推测'):
                 replacement=tiles.conventional_station_path(corridors,s,n,start,end,line)
                 distances=cumulative(replacement) if replacement else None
                 if (distances and distances[-1]*3.6<=200*(arr-dep-min(60,(arr-dep)/4))
                         and early_station_pass(replacement,distances,end) is None):
                     kind,path='底图推测',replacement
-                else:
+                elif on_high_speed:
                     kind='径路不确定'
             if kind in {'时刻推算','路网推测'}:
                 mileages=tiles.station_distances(s,n)

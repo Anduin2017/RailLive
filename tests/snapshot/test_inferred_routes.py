@@ -12,7 +12,7 @@ from corridor_paths import CorridorNetwork
 from departure_paths import conventional_prefixes
 from line_live import indexed_profile
 from shape_excursions import station_hits
-from train_relations import TIMETABLE, inferred_route, timetable
+from train_relations import TIMETABLE, inferred_route, metres, point, timetable
 
 
 class InferredRoutesTest(unittest.TestCase):
@@ -55,6 +55,25 @@ class InferredRoutesTest(unittest.TestCase):
                 self.assertTrue(any(station_hits(via,geometry,distances,150)))
                 self.assertFalse(network.follows_parallel_high_speed(geometry,line))
 
+
+    def test_jiangshan_station_access_in_both_directions(self):
+        runs = timetable()[0]
+        for number, origin in [('K209','QEH'), ('T102','JUH')]:
+            with self.subTest(number=number):
+                trip = next(t for t,r in runs.items() if r[0]==number)
+                seq = next(i for i,stop in enumerate(runs[trip][3]) if stop[0]==origin)
+                self.assertIsNone(inferred_route(trip)[1][seq])
+                leg = next(row for row in trip_display(trip) if row['seq']==seq)
+                self.assertEqual(leg['kind'],'底图推测')
+                distances, path = [r[0] for r in leg['path']], [r[1:] for r in leg['path']]
+                self.assertTrue(29800 < distances[-1] < 30200)
+                # Follow the approach towards Jiangshan in either travel direction.
+                axis = distances,path
+                station = path[-1] if origin=='QEH' else path[0]
+                offsets = [2000,1500,1000,500,0]
+                gaps = [metres(station,point(axis,distances[-1]-d if origin=='QEH' else d))
+                        for d in offsets]
+                self.assertTrue(all(a>b for a,b in zip(gaps,gaps[1:])),gaps)
 
     def test_parallel_line_checks_follow_the_numbering_edition(self):
         self.assertIn('T',conventional_prefixes('20261117'))
