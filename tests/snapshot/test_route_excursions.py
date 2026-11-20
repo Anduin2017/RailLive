@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'build/app'))
 from line_live import indexed_profile
 from region_live import trip_display
 from train_relations import timetable
-from shape_excursions import cumulative, repair_shapes, simplify_leg
+from shape_excursions import cumulative, repair_shapes, simplify_leg, station_hits
 
 
 class RouteExcursionTest(unittest.TestCase):
@@ -31,6 +31,19 @@ class RouteExcursionTest(unittest.TestCase):
             anchors = indexed_profile(trip)[2]
             km = (override['path'][-1][0] if override else anchors[seq+1]-anchors[seq])/1000
             self.assertTrue(lo<km<hi,(number,km))
+
+    def test_nanjing_to_hefei_fallback_uses_direct_corridor(self):
+        trip = '55000G726860'
+        self.assertEqual([s for s, _, _ in timetable()[0][trip][3][5:7]], ['NKH', 'HFH'])
+        leg = next(leg for leg in trip_display(trip) if leg['seq']==5)
+        self.assertEqual(leg['kind'], '底图接轨推测')
+        path = [p[1:] for p in leg['path']]
+        distances = [p[0] for p in leg['path']]
+        self.assertTrue(150000<distances[-1]<158000)
+        quanjiao = next(station_hits((118.277426,32.0623412),path,distances,1500))
+        feidong = next(station_hits((117.4799073,31.8640865),path,distances,1500))
+        self.assertLess(quanjiao[1],feidong[1])
+        self.assertFalse(any(station_hits((118.3860019,31.349784),path,distances,2000)))
 
     def test_documented_detour_is_kept(self):
         # A scheduled in-and-out branch with matching mileage stays intact.

@@ -24,6 +24,18 @@ def geographic(position):
     a,b,c,d=1.015972842,-0.000070497,0.000009795,1.012049241
     return [(d*x-b*y)/(a*d-b*c),(a*y-c*x)/(a*d-b*c)]
 
+
+def same_corridor(first, second):
+    a, b = cumulative(first), cumulative(second)
+    length = min(a[-1], b[-1])
+    if abs(a[-1]-b[-1]) > max(1500, .05*length):
+        return False
+    steps = max(2, math.ceil(length/2000))
+    return all(metres(point((a, first), a[-1]*i/steps),
+                      point((b, second), b[-1]*i/steps)) <= 1500
+               for i in range(steps+1))
+
+
 class TrackNetwork:
     def __init__(self, paths):
         self.edges=defaultdict(dict)
@@ -218,19 +230,31 @@ class TileRoutes:
                     return '站序示意',[p for p,_ in stops]
         return '站间示意',[start,end]
 
-    def peak_alternative(self,corridors,s,n,start,end,path,duration,group):
-        # Use the peak of the actual two-ramp display profile. Recheck routes
-        # outside the primary model's speed envelope even just below an alert.
+    def compare_fallback(self,corridors,donors,s,n,start,end,path,duration,group):
+        # The shape graph can miss a direct connection even when its detour
+        # fits the timetable. Compare that case with the independent track map.
         cruise_seconds=duration-min(60,duration/4)
         length=cumulative(path)[-1]
         ceiling=350 if group in {'G','D','C'} else 200
-        if length*3.6<=ceiling*cruise_seconds:
-            return None
-
+        too_fast=length*3.6>ceiling*cruise_seconds
         origin_lines=self.visits[s].keys()
         destination_lines=self.visits[n].keys()
         common=tuple(sorted(origin_lines & destination_lines))
         fast=group in {'G','D','C','S'}
+        saving=max(3000,.12*length) if too_fast else max(8000,.25*length)
+        reference=None
+        if not too_fast:
+            if length-metres(start,end)<saving:
+                return None
+            if any(abs(length-m)<=max(5000,.18*m) for m in self.station_distances(s,n)):
+                return None
+            kind,reference=self.route(s,n,start,end,not fast)
+            if kind!='底图推测' or length-cumulative(reference)[-1]<saving:
+                return None
+            donor=donors.route(s,n,group if group.isalpha() else '#',start,end)
+            if donor and same_corridor(path,donor):
+                return None
+
         # A conventional passenger service can run along a shared passenger
         # line. Test the named alignment without the general HSR penalty.
         modes=(True,False) if common and not fast else (fast,)
@@ -238,8 +262,10 @@ class TileRoutes:
             source,alternative=corridors.station_route(s,n,start,end,mode,common)
             if not alternative: continue
             ds=cumulative(alternative)
-            if (length-ds[-1]<max(3000,.12*length) or ds[-1]*3.6>ceiling*cruise_seconds
+            if (length-ds[-1]<saving or ds[-1]*3.6>ceiling*cruise_seconds
                     or early_station_pass(alternative,ds,end) is not None):
+                continue
+            if reference and not same_corridor(reference,alternative):
                 continue
             if common:
                 direct=any(corridors.station_line_support(alternative,(line,),(line,))
@@ -250,6 +276,8 @@ class TileRoutes:
             elif not corridors.station_line_support(alternative,origin_lines,destination_lines):
                 continue
             return source,alternative
+        if reference:
+            return '径路不确定',path
         return None
 
     def station_distances(self,s,n):
@@ -431,7 +459,7 @@ def save_fallbacks(out,runs,locations):
                 if cleaned:
                     kind,path='轨迹去绕行推测',cleaned
             if kind=='路网推测':
-                candidate=tiles.peak_alternative(corridors,s,n,start,end,path,arr-dep,runs[trip][0][:1])
+                candidate=tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,runs[trip][0][:1])
                 if candidate:
                     kind,path=candidate
             indexed=[]
