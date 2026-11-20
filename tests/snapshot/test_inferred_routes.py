@@ -11,6 +11,7 @@ from region_live import trip_display
 from corridor_paths import CorridorNetwork
 from departure_paths import conventional_prefixes
 from line_live import indexed_profile
+from shape_excursions import station_hits
 from train_relations import TIMETABLE, inferred_route, timetable
 
 
@@ -37,9 +38,9 @@ class InferredRoutesTest(unittest.TestCase):
     def test_parallel_corridors_reject_high_speed_donor_geometry(self):
         network = CorridorNetwork()
         runs = timetable()[0]
-        for number, pair, line, bounds in [
-            ('K124', {'JBH','YWH'}, '沪昆线', (52000,55000)),
-            ('K554', {'ECH','WHH'}, '皖赣线', (66000,70000)),
+        for number, pair, line, bounds, via in [
+            ('K124', {'JBH','YWH'}, '沪昆线', (52000,55000), (119.973613,29.316180)),  # 义乌西
+            ('K554', {'ECH','WHH'}, '皖赣线', (66000,70000), (118.570749,31.141146)),  # 湾沚
         ]:
             with self.subTest(number=number):
                 trip = next(t for t,r in runs.items() if r[0]==number)
@@ -49,7 +50,10 @@ class InferredRoutesTest(unittest.TestCase):
                 leg = next(row for row in trip_display(trip) if row['seq']==seq)
                 self.assertEqual(leg['kind'],'底图推测')
                 self.assertTrue(bounds[0]<leg['path'][-1][0]<bounds[1])
-                self.assertFalse(network.follows_parallel_high_speed([p[1:] for p in leg['path']],line))
+                geometry = [p[1:] for p in leg['path']]
+                distances = [p[0] for p in leg['path']]
+                self.assertTrue(any(station_hits(via,geometry,distances,150)))
+                self.assertFalse(network.follows_parallel_high_speed(geometry,line))
 
 
     def test_parallel_line_checks_follow_the_numbering_edition(self):
