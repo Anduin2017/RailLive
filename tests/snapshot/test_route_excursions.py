@@ -55,6 +55,18 @@ class RouteExcursionTest(unittest.TestCase):
         self.assertTrue(any(station_hits((118.277426,32.0623412),path,distances,1500)))
         self.assertFalse(any(station_hits((118.3860019,31.349784),path,distances,2000)))
 
+    def test_shanghai_nanjing_conventional_service_stays_on_its_own_line(self):
+        legs = {leg['seq']:leg for leg in trip_display('76000K115820')}
+        for seq, expected in [(18,64000), (20,39000), (22,84000)]:
+            with self.subTest(seq=seq):
+                leg = legs[seq]
+                self.assertEqual(leg['kind'], '底图接轨推测')
+                self.assertLess(abs(leg['path'][-1][0]-expected),1500)
+        rail = CorridorNetwork()
+        nanjing_zhenjiang = [point[1:] for point in legs[18]['path']]
+        self.assertFalse(rail.follows_parallel_high_speed(nanjing_zhenjiang,'京沪线'))
+        self.assertEqual(trip_display('5i000G707501'), [])
+
     def test_cross_line_route_requires_mapped_connections(self):
         a,b,c,d = (115,35),(115.01,35),(115.02,35),(115.03,35)
         net = CorridorNetwork.__new__(CorridorNetwork)

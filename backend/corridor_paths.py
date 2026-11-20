@@ -9,7 +9,7 @@ import math
 from collections import defaultdict
 from functools import lru_cache
 
-from departure_paths import SegmentNetwork, geographic, project_segment
+from departure_paths import STATION_ACCESS_METRES, SegmentNetwork, geographic, project_segment
 from index_rail_map import ROOT, _named_features, coordinate
 from shape_excursions import cumulative
 from train_relations import metres, point
@@ -69,6 +69,28 @@ class CorridorNetwork:
         return {edge for i in range(x-1,x+2) for j in range(y-1,y+2)
                 for edge in self.net.segments.get((i,j),())}
 
+    def follows_parallel_high_speed(self,path,conventional):
+        distances=cumulative(path)
+        axis=distances,path
+        consecutive=0
+        for at in range(STATION_ACCESS_METRES,int(distances[-1])-STATION_ACCESS_METRES,250):
+            p=point(axis,at)
+            high=regular=math.inf
+            for a,b in self.nearby(p):
+                tags=self.tags[a,b]
+                hsr=any(kind.startswith('HSR') for _,kind in tags)
+                named=any(name==conventional and not kind.startswith('HSR') for name,kind in tags)
+                if hsr or named:
+                    gap=metres(p,project_segment(p,a,b)[1])
+                    if hsr: high=min(high,gap)
+                    if named: regular=min(regular,gap)
+            # Resolve a sustained alignment, excluding ambiguous station approaches
+            # and places where both types of track follow the same drawn axis.
+            consecutive=consecutive+1 if high<=100 and regular>high+35 else 0
+            if consecutive>=6:
+                return True
+        return False
+
     @staticmethod
     def weight(tags,fast,lines):
         def cost(name, kind):
@@ -114,7 +136,7 @@ class CorridorNetwork:
         if not mapped: return False
         first,last=mapped[0],mapped[-1]
         # Only the station-to-track access may lack a mapped edge.
-        if distances[first]>1800 or distances[-1]-distances[last+1]>1800:
+        if distances[first]>STATION_ACCESS_METRES or distances[-1]-distances[last+1]>STATION_ACCESS_METRES:
             return False
         if not all(names[first:last+1]):
             return False
