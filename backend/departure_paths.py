@@ -17,6 +17,8 @@ import zlib
 from shape_excursions import cumulative, early_station_pass, project_segment, simplify_leg
 from train_relations import TIMETABLE, TRACKS, metres, point, shape_path, unpack
 
+STATION_ACCESS_METRES = 1800
+
 def geographic(position):
     x,y=position
     x+=5.116568470
@@ -56,7 +58,7 @@ class TrackNetwork:
         x,y=self.cell(p)
         options=(q for i in range(x-1,x+2) for j in range(y-1,y+2) for q in self.grid[i,j])
         q=min(options,key=lambda q:metres(p,q),default=None)
-        return q if q and metres(p,q)<1800 else None
+        return q if q and metres(p,q)<STATION_ACCESS_METRES else None
 
     @lru_cache(maxsize=12000)
     def route(self,start,end):
@@ -229,6 +231,27 @@ class TileRoutes:
                         for (a,ka),(b,kb) in zip(stops,stops[1:])):
                     return '站序示意',[p for p,_ in stops]
         return '站间示意',[start,end]
+
+    def conventional_parallel_route(self,corridors,s,n,path,duration,group):
+        # In the Shanghai–Nanjing corridor both published routes list many
+        # of the same stations. A matching mileage cannot distinguish them.
+        conventional='京沪线'
+        common=self.visits[s].keys() & self.visits[n].keys()
+        if (group not in {'K','T','Z'} and not group.isdigit()
+                or not {conventional,'沪宁高速线'} <= common
+                or not corridors.follows_parallel_high_speed(path,conventional)):
+            return None
+        lines=(conventional,)
+        source,candidate=corridors.station_route(s,n,path[0],path[-1],False,lines)
+        if not candidate or not self.fits_line(conventional,s,n,candidate):
+            return '径路不确定',path
+        distances=cumulative(candidate)
+        if (distances[-1]*3.6>200*(duration-min(60,duration/4))
+                or early_station_pass(candidate,distances,path[-1]) is not None
+                or not corridors.station_line_support(candidate,lines,lines)
+                or corridors.follows_parallel_high_speed(candidate,conventional)):
+            return '径路不确定',path
+        return source,candidate
 
     def compare_fallback(self,corridors,donors,s,n,start,end,path,duration,group):
         # The shape graph can miss a direct connection even when its detour
@@ -470,7 +493,9 @@ def save_fallbacks(out,runs,locations):
                 if cleaned:
                     kind,path='轨迹去绕行推测',cleaned
             if kind=='路网推测':
-                candidate=tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,runs[trip][0][:1])
+                group=runs[trip][0][:1]
+                candidate=(tiles.conventional_parallel_route(corridors,s,n,path,arr-dep,group)
+                           or tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,group))
                 if candidate:
                     kind,path=candidate
             indexed=[]
