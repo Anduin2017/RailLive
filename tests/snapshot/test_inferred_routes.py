@@ -9,6 +9,7 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[2] / 'build/app'))
 from region_live import trip_display
 from corridor_paths import CorridorNetwork
+from departure_paths import conventional_prefixes
 from line_live import indexed_profile
 from train_relations import TIMETABLE, inferred_route, timetable
 
@@ -49,3 +50,9 @@ class InferredRoutesTest(unittest.TestCase):
                 self.assertEqual(leg['kind'],'底图推测')
                 self.assertTrue(bounds[0]<leg['path'][-1][0]<bounds[1])
                 self.assertFalse(network.follows_parallel_high_speed([p[1:] for p in leg['path']],line))
+
+
+    def test_parallel_line_checks_follow_the_numbering_edition(self):
+        self.assertIn('T',conventional_prefixes('20261117'))
+        self.assertNotIn('K',conventional_prefixes('20261125'))
+        self.assertIn('V',conventional_prefixes('20261125'))

@@ -27,10 +27,17 @@ CONVENTIONAL_LINES = {
 }
 
 
-def scheduled_conventional_line(station, destination, number):
-    if number[:1] in {'K', 'T', 'Z'} or number[:1].isdigit():
-        return CONVENTIONAL_LINES.get(frozenset((station, destination)))
-    return None
+def conventional_prefixes(feed_version):
+    # Ordinary services began migrating from T/K and numeric passenger numbers
+    # to N/V on 2026-11-25. Interpret a frozen timetable using its own edition.
+    if re.fullmatch(r'[0-9]{8}',feed_version) and feed_version<'20261125':
+        return frozenset('KTZ0123456789')
+    return frozenset('ZNV')
+
+
+def snapshot_conventional_prefixes(db):
+    metadata=json.loads(db.execute('SELECT * FROM metadata').fetchone()[0])
+    return conventional_prefixes(str(metadata.get('feed_version','')))
 
 
 def geographic(position):
@@ -263,13 +270,12 @@ class TileRoutes:
             return path
         return None
 
-    def conventional_parallel_route(self,corridors,s,n,path,duration,group):
+    def conventional_parallel_route(self,corridors,s,n,path,duration):
         # In the Shanghai–Nanjing corridor both published routes list many
         # of the same stations. A matching mileage cannot distinguish them.
         conventional='京沪线'
         common=self.visits[s].keys() & self.visits[n].keys()
-        if (group not in {'K','T','Z'} and not group.isdigit()
-                or not {conventional,'沪宁高速线'} <= common
+        if (not {conventional,'沪宁高速线'} <= common
                 or not corridors.follows_parallel_high_speed(path,conventional)):
             return None
         lines=(conventional,)
@@ -433,7 +439,9 @@ def save_fallbacks(out,runs,locations):
       CREATE TABLE display_windows(bucket INTEGER, offset INTEGER,trip TEXT,seq INTEGER,
         west REAL,south REAL,east REAL,north REAL);
     """)
-    for trip,(_,_,shape,calls) in runs.items():
+    with closing(sqlite3.connect(TIMETABLE)) as db:
+        ordinary=snapshot_conventional_prefixes(db)
+    for trip,(number,_,shape,calls) in runs.items():
         curve,times,anchors=indexed_profile(trip) if shape else ([],[],[])
         legs=inferred_route(trip)[1] if shape.startswith('inferred:') else None
         for seq,((s,_,dep),(n,arr,next_dep)) in enumerate(zip(calls,calls[1:])):
@@ -517,7 +525,7 @@ def save_fallbacks(out,runs,locations):
                     speed=sum(metres(a,b) for a,b in zip(path,path[1:]))*3.6/(arr-dep)
                     if speed>(380 if fast else 220):
                         raise ValueError(f'{trip} {s} → {n}: implausible corridor speed {speed:.1f}')
-            line=scheduled_conventional_line(s,n,runs[trip][0])
+            line=CONVENTIONAL_LINES.get(frozenset((s,n))) if number[:1] in ordinary else None
             if line and corridors.follows_parallel_high_speed(path,line):
                 replacement=tiles.conventional_station_path(corridors,s,n,start,end,line)
                 distances=cumulative(replacement) if replacement else None
@@ -534,8 +542,10 @@ def save_fallbacks(out,runs,locations):
                     kind,path='轨迹去绕行推测',cleaned
             if kind=='路网推测':
                 group=runs[trip][0][:1]
-                candidate=(tiles.conventional_parallel_route(corridors,s,n,path,arr-dep,group)
-                           or tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,group))
+                candidate=(tiles.conventional_parallel_route(corridors,s,n,path,arr-dep)
+                           if group in ordinary else None)
+                if not candidate:
+                    candidate=tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,group)
                 if candidate:
                     kind,path=candidate
             indexed=[]
