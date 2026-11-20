@@ -4,17 +4,19 @@
 const spaceTime = (() => {
   const cache = new Map(), pending = new Map(), failed = new Map();
   const stats = {received:0, speculative:0, usedPrefetch:0, evictedUnused:0, peakBytes:0, bytes:0, loads:0};
+  const imminentPriority=.01;
   const budget = 48 * 1024 * 1024;
   const previous=new Map(), attempted=new Set();
   let manifest, catalog, boot, base, changed=0, notify, raf=0, plan=[], visible=[];
   let desired=new Set(), nextUpdate=0, latency=250, previousCenter, pan=[0,0], assembled, lastPlan='';
+  let outdated=false, nextVersionCheck=0;
   const refresh = () => {
     if (!raf) raf=requestAnimationFrame(()=>{raf=0;notify?.();});
   };
 
   async function read(url,signal) {
     const res=await fetch(url,{signal});
-    if (!res.ok) throw Error(res.status);
+    if (!res.ok) throw Object.assign(Error(res.status),{status:res.status});
     const blob=await res.blob();
     // Some CDNs mark stored .gz files as Content-Encoding: gzip, in which
     // case fetch has already decoded the payload. Geometry is binary in both cases.
@@ -51,6 +53,21 @@ const spaceTime = (() => {
     })().catch(()=>{setTimeout(()=>{boot=null;init();},2000)});
     return boot;
   }
+  async function checkVersion() {
+    if (outdated || performance.now()<nextVersionCheck) return;
+    nextVersionCheck=performance.now()+30000;
+    try {
+      const response=await fetch('./space-time/manifest.json',{cache:'no-cache'});
+      if (response.ok) {
+        const latest=await response.json();
+        if (latest.version && latest.version!==manifest.version) {
+          // Other open panels also pin records from this snapshot.
+          outdated=true;
+          refresh();
+        }
+      }
+    } catch { /* Keep retrying the current tile on transient network failures. */ }
+  }
   function touch(key,used) {
     const v=cache.get(key);
     if (v) {
@@ -69,9 +86,10 @@ const spaceTime = (() => {
     }
   }
   function pump() {
+    if (outdated) return;
     const now=performance.now();
     for (const job of plan) {
-      if(pending.size>=(job.priority===0?48:6)) break;
+      if(pending.size>=(job.priority<=imminentPriority?48:6)) break;
       const {key,priority}=job;
       if(priority>0 && attempted.has(key))continue;
       if(cache.has(key)||pending.has(key)||(failed.get(key)||0)>now) continue;
@@ -97,8 +115,9 @@ const spaceTime = (() => {
         stats.peakBytes=Math.max(stats.peakBytes,stats.bytes);
         if(desired.has(key)) {changed++;refresh();}
         failed.delete(key);
-      }).catch(()=>{
+      }).catch(error=>{
         if (!controller.signal.aborted) {
+          if (error.status===404 || error.status===410) void checkVersion();
           failed.set(key,performance.now()+2000);setTimeout(refresh,2050);
         }
       }).finally(()=>{
@@ -150,7 +169,7 @@ const spaceTime = (() => {
         if(spatial*spatial+temporal*temporal>1.001)continue;
         const key=slotKey(cell,bucket+dt);
         if(!key)continue;
-        const priority=!spatial&&!dt?0:!spatial&&ahead===1&&urgent?.01:.1+spatial+temporal;
+        const priority=!spatial&&!dt?0:!spatial&&ahead===1&&urgent?imminentPriority:.1+spatial+temporal;
         add(key,priority);
         const deps=cache.get(key)?.deps;
         if(deps)for(const home of deps)add('g/'+home,priority);
@@ -257,5 +276,5 @@ const spaceTime = (() => {
   }
   // Fetch version and calendar while the base map initializes.
   init();
-  return {windowAt,reset,stats};
+  return {windowAt,reset,stats,get outdated(){return outdated;}};
 })();

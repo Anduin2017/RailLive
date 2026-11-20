@@ -13,6 +13,7 @@ async def check(ev,wait):
     await ev("""window.q=s=>document.querySelector(s);window.seek=n=>{q('#live-range').value=n;q('#live-range').dispatchEvent(new Event('input'))};
     window.place=(lon,lat,z)=>map.jumpTo({center:toMapCoordinates([lon,lat]),zoom:z});
     window.feats=()=>map.getSource('region-trains')?._data?.features.filter(x=>!x.properties.car)||[];window.f=n=>feats().find(f=>f.properties.number===n);
+    if(q('#live-clock').hidden)q('#live-toggle').click();
     q('#live-date').value='%s';q('#live-date').dispatchEvent(new Event('change'));seek(47110);void place(120.64,31.42,9)""" % case_day())
     await wait("f('G1211')")
     await ev("""window.setLabel=(key,on)=>{const input=q('[data-train-label="'+key+'"]');
