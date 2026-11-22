@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maps.eox.at; connect-src 'self' https://tiles.maps.eox.at">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maps.eox.at; connect-src 'self' blob: https://tiles.maps.eox.at https://tiles.openrailwaymap.org">
   <title>中国铁路实况</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./vendor/mapbox-gl.css">
-  <link rel="stylesheet" href="./app.css?v=sheet-minimize1">
+  <link rel="stylesheet" href="./app.css?v=orm-preview1">
   <link rel="stylesheet" href="./catalog.css?v=metric-help1">
   <!-- static-data -->
   <script defer src="./vendor/mapbox-gl.js"></script>
@@ -19,7 +19,8 @@
   <script defer src="./live.js?v=valid-arrivals1"></script>
   <script defer src="./station-board.js?v=valid-arrivals1"></script>
   <script defer src="./station-symbols.js?v=platform-scale2"></script>
-  <script defer src="./app.js?v=nov25-classes1"></script>
+  <script defer src="./openrailwaymap.js"></script>
+  <script defer src="./app.js?v=orm-preview1"></script>
   <script defer src="./catalog.js?v=nov25-classes1"></script>
 </head>
 <body>
@@ -29,7 +30,9 @@
       <button id="rail-basemap" type="button" aria-pressed="true" disabled>地图</button>
       <button id="satellite-basemap" type="button" aria-pressed="false" disabled>卫星</button>
       <button id="blank-basemap" type="button" aria-pressed="false" disabled>空白</button>
+      <button id="orm-basemap" type="button" aria-pressed="false" disabled>OpenRailwayMap</button>
     </div>
+    <div id="orm-credit" hidden>数据 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · 样式 <a href="https://www.openrailwaymap.org/" target="_blank" rel="noopener">OpenRailwayMap</a> (<a href="https://creativecommons.org/licenses/by-sa/2.0/" target="_blank" rel="noopener">CC BY-SA 2.0</a>)</div>
     <div id="basemap-status" role="status" hidden></div>
   </div>
   <nav class="map-panel-tools" aria-label="地图面板">
