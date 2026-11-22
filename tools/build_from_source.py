@@ -1,6 +1,7 @@
 """Generate a complete static release from a pinned set of original feeds."""
 import argparse
 import csv
+import hashlib
 import io
 import json
 import os
@@ -28,6 +29,25 @@ STAGES = (
     'build_basemap_tiles', 'build_relations', 'region_live', 'station_symbols',
     'space_tiles', 'audit_live',
 )
+
+
+def apply_timetable_update(feed, supplement):
+    """Install the reconciled GTFS tables in the build copy of the base feed."""
+    target = feed.with_suffix('.updated')
+    with zipfile.ZipFile(supplement) as update:
+        metadata = json.loads(update.read('source.json'))
+        with feed.open('rb') as source:
+            if hashlib.file_digest(source, 'sha256').hexdigest() != metadata['baseSha256']:
+                raise ValueError('Refresh the 12306 timetable supplement for this GTFS edition')
+        with zipfile.ZipFile(feed) as base, zipfile.ZipFile(target, 'w') as output:
+            tables = set(update.namelist()) - {'source.json'}
+            if not tables <= set(base.namelist()):
+                raise ValueError('Unexpected GTFS table in the timetable supplement')
+            for entry in base.infolist():
+                archive = update if entry.filename in tables else base
+                with archive.open(entry.filename) as src, output.open(entry, 'w') as dst:
+                    shutil.copyfileobj(src, dst)
+    target.replace(feed)
 
 
 def apply_stop_time_corrections(feed, changes):
@@ -105,6 +125,9 @@ def build(source, snapshot, site):
             else:
                 shutil.copy2(src, dst)
         shutil.copy2(ROOT / 'inputs/line-facts.json', staging / 'data/line-facts.json')
+        supplement = source / 'data/12306-timetable.zip'
+        if supplement.exists():
+            apply_timetable_update(staging / 'data/output_gtfs.zip', supplement)
         apply_stop_time_corrections(staging / 'data/output_gtfs.zip',
                                     json.loads((ROOT / 'inputs/stop-times.json').read_text()))
         (staging / 'space-time').mkdir()

@@ -28,17 +28,21 @@ CONVENTIONAL_LINES = {
 }
 
 
-def conventional_prefixes(feed_version):
-    # Ordinary services began migrating from T/K and numeric passenger numbers
-    # to N/V on 2026-11-25. Interpret a frozen timetable using its own edition.
-    if re.fullmatch(r'[0-9]{8}',feed_version) and feed_version<'20261125':
+def conventional_prefixes(first_service_day):
+    # Trip geometry is shared by its dated departures. The publication date
+    # of the feed does not identify which numbering scheme a trip uses.
+    if first_service_day < '20261125':
         return frozenset('KTZ0123456789')
     return frozenset('ZNV')
 
 
-def snapshot_conventional_prefixes(db):
-    metadata=json.loads(db.execute('SELECT * FROM metadata').fetchone()[0])
-    return conventional_prefixes(str(metadata.get('feed_version','')))
+def conventional_trips(db):
+    rows = db.execute("""
+        SELECT trips.id, trips.number, first_day FROM trips JOIN (
+            SELECT service, min(date) AS first_day FROM dates WHERE kind=1 GROUP BY service
+        ) AS calendars ON trips.service=calendars.service
+    """)
+    return {trip for trip, number, first_day in rows if number[:1] in conventional_prefixes(first_day)}
 
 
 def geographic(position):
@@ -456,7 +460,7 @@ def save_fallbacks(out,runs,locations):
         west REAL,south REAL,east REAL,north REAL);
     """)
     with closing(sqlite3.connect(TIMETABLE)) as db:
-        ordinary=snapshot_conventional_prefixes(db)
+        ordinary=conventional_trips(db)
     for trip,(number,_,shape,calls) in runs.items():
         curve,times,anchors=indexed_profile(trip) if shape else ([],[],[])
         legs=inferred_route(trip)[1] if shape.startswith('inferred:') else None
@@ -541,7 +545,7 @@ def save_fallbacks(out,runs,locations):
                     speed=sum(metres(a,b) for a,b in zip(path,path[1:]))*3.6/(arr-dep)
                     if speed>(380 if fast else 220):
                         raise ValueError(f'{trip} {s} → {n}: implausible corridor speed {speed:.1f}')
-            line=CONVENTIONAL_LINES.get(frozenset((s,n))) if number[:1] in ordinary else None
+            line=CONVENTIONAL_LINES.get(frozenset((s,n))) if trip in ordinary else None
             on_high_speed = line and corridors.follows_parallel_high_speed(path,line)
             if line and (on_high_speed or kind=='路网推测'):
                 replacement=tiles.conventional_station_path(corridors,s,n,start,end,line)
@@ -560,7 +564,7 @@ def save_fallbacks(out,runs,locations):
             if kind=='路网推测':
                 group=runs[trip][0][:1]
                 candidate=(tiles.conventional_parallel_route(corridors,s,n,path,arr-dep)
-                           if group in ordinary else None)
+                           if trip in ordinary else None)
                 if not candidate:
                     candidate=tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,group)
                 if candidate:

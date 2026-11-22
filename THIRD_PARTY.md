@@ -3,6 +3,7 @@
 | 内容 | 来源与许可 |
 | --- | --- |
 | 本地渲染库及样式 | `web/vendor/` 随附 Mapbox GL JS，保留 Mapbox 的 BSD 三条款及其依赖的版权说明。本项目对打包库的字形回退处理作过调整。[随附许可](web/vendor/mapbox-gl-LICENSE.txt) |
+| 2026-11-25 普速换号 | 依据中国铁路 12306 公布的按日车次、开行日历与逐站时刻，对首批 Z/N/V 班次编排。数据整理于 2026-11-22。停站、跨日到发时刻全部吻合且旧普速轨迹唯一时，沿用基础 GTFS 几何。车站与路网沿用各自注明的来源。[12306 公告](https://mobile.12306.cn/mormhweb/zxdt/202611/t20261105_46591.html) · [N3 逐站数据](https://kyfw.12306.cn/otn/queryTrainInfo/query?leftTicketDTO.train_no=24000000N300&leftTicketDTO.train_date=2026-11-25&rand_code=) |
 | 列车时刻、停站、开行日历及 GTFS 轨迹 | 时刻表来源为 Jeremy Gao（wensimehrp）的 Chinese Railway GTFS，采用 CC BY 4.0。应用从发行数据导入、合并车站、推演轨迹并生成索引和时空片。[原始发行版](https://github.com/wensimehrp/chinese-railway-gtfs/releases/tag/gtfs-20261117-101334) · [随附许可](licenses/GTFS-CC-BY-4.0.txt) |
 | 铁路底图、站卡、线路资料、地图样式、精灵和字形 | 本地工作快照部分取自中国铁路地图，发行包配套线路表另记有 jprailfan.com 来源。当前未确认整套资源的公开再分发授权。数据包单独管理，各项来源和署名应随其保留。[中国铁路地图](https://cnrail.geogv.org/zhcn/) |
 | 地理背景 | 底图标注 © OpenStreetMap contributors。OpenStreetMap 地理数据使用 ODbL，第三方制图和瓦片服务有各自的使用条件。[版权与署名](https://www.openstreetmap.org/copyright) |
