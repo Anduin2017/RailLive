@@ -7,7 +7,7 @@ import json
 import math
 
 from corridor_paths import CorridorNetwork
-from departure_paths import CONVENTIONAL_LINES, conventional_trips
+from departure_paths import CONVENTIONAL_LINES, conventional_trips, inherited_shapes
 from train_relations import metres, point, seconds, unpack
 
 
@@ -18,9 +18,10 @@ def infer_routes(src, out):
     trips = list(src.execute('SELECT id,number,shape FROM trips ORDER BY id'))
     missing = [(trip, number) for trip, number, shape in trips if not shape]
     wanted = {(a[0], b[0]) for trip, _ in missing for a,b in zip(calls[trip], calls[trip][1:])}
+    inherited = inherited_shapes(src)
     candidates = defaultdict(dict)
     for trip, number, shape in trips:
-        if not shape:
+        if not shape or trip in inherited:
             continue
         row = out.execute('SELECT anchors FROM profiles WHERE trip=?',(trip,)).fetchone()
         if not row:

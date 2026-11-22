@@ -10,7 +10,7 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[2] / 'build/app'))
 from region_live import trip_display
 from corridor_paths import CorridorNetwork
-from departure_paths import conventional_trips
+from departure_paths import conventional_trips, inherited_shapes
 from line_live import indexed_profile
 from shape_excursions import station_hits
 from train_relations import TIMETABLE, inferred_route, metres, point, timetable
@@ -20,6 +20,7 @@ class InferredRoutesTest(unittest.TestCase):
     def test_provenance_and_gaps(self):
         with closing(sqlite3.connect(TIMETABLE)) as db:
             source = dict(db.execute("SELECT id,shape FROM trips"))
+            inherited = inherited_shapes(db)
         runs = timetable()[0]
         for trip, (_,_,shape,stops) in runs.items():
             if not shape.startswith('inferred:'):
@@ -32,6 +33,7 @@ class InferredRoutesTest(unittest.TestCase):
                 if leg:
                     a,b,donor = leg
                     self.assertTrue(0<=a<b<len(path) and source[donor],(trip,i))
+                    self.assertNotIn(donor, inherited, (trip, i))
                 elif curve and stops[i+1][1]>stops[i][2]:
                     k=bisect_right(times,stops[i][2])
                     self.assertIsNone(curve[k][1],(trip,i))

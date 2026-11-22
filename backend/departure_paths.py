@@ -45,6 +45,13 @@ def conventional_trips(db):
     return {trip for trip, number, first_day in rows if number[:1] in conventional_prefixes(first_day)}
 
 
+def inherited_shapes(db):
+    # Snapshots built before the timetable transition have only original shapes.
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='inherited_shapes'").fetchone():
+        return set()
+    return {trip for (trip,) in db.execute("SELECT trip FROM inherited_shapes")}
+
+
 def geographic(position):
     x,y=position
     x+=5.116568470
@@ -409,12 +416,12 @@ class TileRoutes:
 
 class DonorRoutes:
     """Use original timetable shapes serving both stations, including return services."""
-    def __init__(self,runs):
+    def __init__(self,runs,inherited):
         self.visits=defaultdict(set)
         with closing(sqlite3.connect(TRACKS)) as db:
             for trip,blob in db.execute('SELECT trip,anchors FROM profiles'):
                 number,_,shape,calls=runs[trip]
-                if not shape or shape.startswith('inferred:'): continue
+                if not shape or shape.startswith('inferred:') or trip in inherited: continue
                 visits=list(zip(calls,unpack(blob)))
                 for i,((a,_,_),first) in enumerate(visits):
                     if first is None: continue
@@ -452,7 +459,6 @@ def save_fallbacks(out,runs,locations):
     corridors=CorridorNetwork()
     network=TrackNetwork(original_shapes())
     tiles=TileRoutes(locations)
-    donors=DonorRoutes(runs)
     out.executescript("""
       CREATE TABLE display_legs(trip TEXT, seq INTEGER, start INTEGER, end INTEGER, kind TEXT, path BLOB,
         PRIMARY KEY(trip,seq));
@@ -461,6 +467,7 @@ def save_fallbacks(out,runs,locations):
     """)
     with closing(sqlite3.connect(TIMETABLE)) as db:
         ordinary=conventional_trips(db)
+        donors=DonorRoutes(runs,inherited_shapes(db))
     for trip,(number,_,shape,calls) in runs.items():
         curve,times,anchors=indexed_profile(trip) if shape else ([],[],[])
         legs=inferred_route(trip)[1] if shape.startswith('inferred:') else None
