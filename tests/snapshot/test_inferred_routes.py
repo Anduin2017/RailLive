@@ -1,5 +1,6 @@
 """Inferred paths must remain attributable and must never bridge an unknown leg."""
 from bisect import bisect_right
+from collections import defaultdict
 from pathlib import Path
 from contextlib import closing
 import sqlite3
@@ -9,7 +10,7 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[2] / 'build/app'))
 from region_live import trip_display
 from corridor_paths import CorridorNetwork
-from departure_paths import conventional_prefixes
+from departure_paths import conventional_trips, inherited_shapes
 from line_live import indexed_profile
 from shape_excursions import station_hits
 from train_relations import TIMETABLE, inferred_route, metres, point, timetable
@@ -19,6 +20,7 @@ class InferredRoutesTest(unittest.TestCase):
     def test_provenance_and_gaps(self):
         with closing(sqlite3.connect(TIMETABLE)) as db:
             source = dict(db.execute("SELECT id,shape FROM trips"))
+            inherited = inherited_shapes(db)
         runs = timetable()[0]
         for trip, (_,_,shape,stops) in runs.items():
             if not shape.startswith('inferred:'):
@@ -31,6 +33,7 @@ class InferredRoutesTest(unittest.TestCase):
                 if leg:
                     a,b,donor = leg
                     self.assertTrue(0<=a<b<len(path) and source[donor],(trip,i))
+                    self.assertNotIn(donor, inherited, (trip, i))
                 elif curve and stops[i+1][1]>stops[i][2]:
                     k=bisect_right(times,stops[i][2])
                     self.assertIsNone(curve[k][1],(trip,i))
@@ -75,7 +78,23 @@ class InferredRoutesTest(unittest.TestCase):
                         for d in offsets]
                 self.assertTrue(all(a>b for a,b in zip(gaps,gaps[1:])),gaps)
 
-    def test_parallel_line_checks_follow_the_numbering_edition(self):
-        self.assertIn('T',conventional_prefixes('20261117'))
-        self.assertNotIn('K',conventional_prefixes('20261125'))
-        self.assertIn('V',conventional_prefixes('20261125'))
+    def test_ordinary_routes_follow_the_trip_service_days(self):
+        with closing(sqlite3.connect(TIMETABLE)) as db:
+            eligible = conventional_trips(db)
+            calendar = defaultdict(set)
+            for number, trip, day in db.execute("""
+                SELECT number, id, date FROM trips JOIN dates USING(service)
+                WHERE kind=1 AND number IN ('1461','T109','V6061','N3')
+            """):
+                self.assertIn(trip, eligible)
+                calendar[number].add(day)
+            for old_number, new_number in [('1461','V6061'), ('T109','N3')]:
+                self.assertEqual(max(calendar[old_number]), '20261124')
+                self.assertEqual(min(calendar[new_number]), '20261125')
+                rows = db.execute("""
+                    SELECT number, min(departure), max(arrival)
+                    FROM times JOIN trips ON trip=id
+                    WHERE number IN (?,?) GROUP BY number
+                """, (old_number, new_number)).fetchall()
+                expected = ('11:59:00', '30:45:00') if new_number=='V6061' else ('20:04:00', '35:02:00')
+                self.assertEqual([tuple(row[1:]) for row in rows], [expected, expected])

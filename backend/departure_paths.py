@@ -28,17 +28,28 @@ CONVENTIONAL_LINES = {
 }
 
 
-def conventional_prefixes(feed_version):
-    # Ordinary services began migrating from T/K and numeric passenger numbers
-    # to N/V on 2026-11-25. Interpret a frozen timetable using its own edition.
-    if re.fullmatch(r'[0-9]{8}',feed_version) and feed_version<'20261125':
+def conventional_prefixes(first_service_day):
+    # Trip geometry is shared by its dated departures. The publication date
+    # of the feed does not identify which numbering scheme a trip uses.
+    if first_service_day < '20261125':
         return frozenset('KTZ0123456789')
     return frozenset('ZNV')
 
 
-def snapshot_conventional_prefixes(db):
-    metadata=json.loads(db.execute('SELECT * FROM metadata').fetchone()[0])
-    return conventional_prefixes(str(metadata.get('feed_version','')))
+def conventional_trips(db):
+    rows = db.execute("""
+        SELECT trips.id, trips.number, first_day FROM trips JOIN (
+            SELECT service, min(date) AS first_day FROM dates WHERE kind=1 GROUP BY service
+        ) AS calendars ON trips.service=calendars.service
+    """)
+    return {trip for trip, number, first_day in rows if number[:1] in conventional_prefixes(first_day)}
+
+
+def inherited_shapes(db):
+    # Snapshots built before the timetable transition have only original shapes.
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='inherited_shapes'").fetchone():
+        return set()
+    return {trip for (trip,) in db.execute("SELECT trip FROM inherited_shapes")}
 
 
 def geographic(position):
@@ -405,12 +416,12 @@ class TileRoutes:
 
 class DonorRoutes:
     """Use original timetable shapes serving both stations, including return services."""
-    def __init__(self,runs):
+    def __init__(self,runs,inherited):
         self.visits=defaultdict(set)
         with closing(sqlite3.connect(TRACKS)) as db:
             for trip,blob in db.execute('SELECT trip,anchors FROM profiles'):
                 number,_,shape,calls=runs[trip]
-                if not shape or shape.startswith('inferred:'): continue
+                if not shape or shape.startswith('inferred:') or trip in inherited: continue
                 visits=list(zip(calls,unpack(blob)))
                 for i,((a,_,_),first) in enumerate(visits):
                     if first is None: continue
@@ -448,7 +459,6 @@ def save_fallbacks(out,runs,locations):
     corridors=CorridorNetwork()
     network=TrackNetwork(original_shapes())
     tiles=TileRoutes(locations)
-    donors=DonorRoutes(runs)
     out.executescript("""
       CREATE TABLE display_legs(trip TEXT, seq INTEGER, start INTEGER, end INTEGER, kind TEXT, path BLOB,
         PRIMARY KEY(trip,seq));
@@ -456,7 +466,8 @@ def save_fallbacks(out,runs,locations):
         west REAL,south REAL,east REAL,north REAL);
     """)
     with closing(sqlite3.connect(TIMETABLE)) as db:
-        ordinary=snapshot_conventional_prefixes(db)
+        ordinary=conventional_trips(db)
+        donors=DonorRoutes(runs,inherited_shapes(db))
     for trip,(number,_,shape,calls) in runs.items():
         curve,times,anchors=indexed_profile(trip) if shape else ([],[],[])
         legs=inferred_route(trip)[1] if shape.startswith('inferred:') else None
@@ -541,7 +552,7 @@ def save_fallbacks(out,runs,locations):
                     speed=sum(metres(a,b) for a,b in zip(path,path[1:]))*3.6/(arr-dep)
                     if speed>(380 if fast else 220):
                         raise ValueError(f'{trip} {s} → {n}: implausible corridor speed {speed:.1f}')
-            line=CONVENTIONAL_LINES.get(frozenset((s,n))) if number[:1] in ordinary else None
+            line=CONVENTIONAL_LINES.get(frozenset((s,n))) if trip in ordinary else None
             on_high_speed = line and corridors.follows_parallel_high_speed(path,line)
             if line and (on_high_speed or kind=='路网推测'):
                 replacement=tiles.conventional_station_path(corridors,s,n,start,end,line)
@@ -560,7 +571,7 @@ def save_fallbacks(out,runs,locations):
             if kind=='路网推测':
                 group=runs[trip][0][:1]
                 candidate=(tiles.conventional_parallel_route(corridors,s,n,path,arr-dep)
-                           if group in ordinary else None)
+                           if trip in ordinary else None)
                 if not candidate:
                     candidate=tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,group)
                 if candidate:

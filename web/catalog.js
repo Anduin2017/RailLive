@@ -11,7 +11,7 @@ const catalogViews = {
   },
   trains: {
     title: '所有车次', search: '搜索车次号，如 G12', open: id => showTrip(id, undefined, 'catalog'), sort: 'name', order: 'asc',
-    tags: [...'GDCSZTKY'].map(prefix => [prefix, prefix]).concat([['numeric', '纯数字']]),
+    tags: [...'GDCSZNVTKY'].map(prefix => [prefix, prefix]).concat([['numeric', '纯数字']]),
     columns: [
       ['name', '车次'], ['origin', '始发站'], ['destination', '终到站'], ['departure', '始发时间', true],
       ['arrival', '终到时间', true], ['duration', '全程耗时', true], ['stops', '停靠站', true],

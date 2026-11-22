@@ -7,7 +7,7 @@ import json
 import math
 
 from corridor_paths import CorridorNetwork
-from departure_paths import CONVENTIONAL_LINES, snapshot_conventional_prefixes
+from departure_paths import CONVENTIONAL_LINES, conventional_trips, inherited_shapes
 from train_relations import metres, point, seconds, unpack
 
 
@@ -18,9 +18,10 @@ def infer_routes(src, out):
     trips = list(src.execute('SELECT id,number,shape FROM trips ORDER BY id'))
     missing = [(trip, number) for trip, number, shape in trips if not shape]
     wanted = {(a[0], b[0]) for trip, _ in missing for a,b in zip(calls[trip], calls[trip][1:])}
+    inherited = inherited_shapes(src)
     candidates = defaultdict(dict)
     for trip, number, shape in trips:
-        if not shape:
+        if not shape or trip in inherited:
             continue
         row = out.execute('SELECT anchors FROM profiles WHERE trip=?',(trip,)).fetchone()
         if not row:
@@ -77,11 +78,11 @@ def infer_routes(src, out):
         part = [point((dist,coords),start), *coords[bisect_right(dist,start):bisect_left(dist,end)], point((dist,coords),end)]
         return part, length, candidates[station,dest][routes[0]]
 
-    ordinary = snapshot_conventional_prefixes(src)
+    ordinary = conventional_trips(src)
     for trip, number in missing:
         coords, legs = [], []
         for (station,_,dep),(dest,arr,_) in zip(calls[trip],calls[trip][1:]):
-            line = CONVENTIONAL_LINES.get(frozenset((station,dest))) if number[:1] in ordinary else None
+            line = CONVENTIONAL_LINES.get(frozenset((station,dest))) if trip in ordinary else None
             result = segment(station,dest,line)
             if not result or arr<=dep or result[1]*3.6/(arr-dep)>(350 if number[:1] in 'GDC' else 200):
                 legs.append(None)

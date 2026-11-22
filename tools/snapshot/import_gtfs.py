@@ -111,6 +111,7 @@ def main():
         db.executescript("""
             CREATE TABLE stops(id TEXT PRIMARY KEY, name TEXT, lat REAL, lon REAL);
             CREATE TABLE trips(id TEXT PRIMARY KEY, number TEXT COLLATE NOCASE, service TEXT, shape TEXT);
+            CREATE TABLE inherited_shapes(trip TEXT PRIMARY KEY, donor TEXT NOT NULL);
             CREATE TABLE times(trip TEXT, station TEXT, seq INTEGER, arrival TEXT, departure TEXT,
                                PRIMARY KEY(trip, seq));
             CREATE TABLE dates(service TEXT, date TEXT, kind INTEGER, PRIMARY KEY(service, date));
@@ -122,6 +123,10 @@ def main():
         """)
         insert(db, archive, "stops", ["stop_id", "stop_name", "stop_lat", "stop_lon"])
         insert(db, archive, "trips", ["trip_id", "trip_short_name", "service_id", "shape_id"])
+        db.executemany("INSERT INTO inherited_shapes VALUES (?,?)", (
+            (r["trip_id"], r["raillive_shape_donor"]) for r in rows(archive, "trips.txt")
+            if r.get("raillive_shape_donor")
+        ))
         insert(db, archive, "stop_times", ["trip_id", "stop_id", "stop_sequence",
                                          "arrival_time", "departure_time"], "times")
         corrected_arrivals = repair_overnight_arrivals(db)
