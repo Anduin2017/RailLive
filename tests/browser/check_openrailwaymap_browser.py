@@ -15,7 +15,7 @@ async def check(ev, wait):
         return new Promise(resolve => ormResponses.push(resolve));
       };
       blankButton.click();
-      map.jumpTo({center:toMapCoordinates([120.795,31.066]),zoom:14});""")
+      map.jumpTo({center:toMapCoordinates([120.795,31.066]),zoom:14}); true;""")
     assert await ev("ormRequests.length === 0")
     await ev("ormButton.click()")
     await wait("ormResponses.length > 0")
