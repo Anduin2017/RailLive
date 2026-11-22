@@ -48,6 +48,12 @@ def apply_timetable_update(feed, supplement):
                 with archive.open(entry.filename) as src, output.open(entry, 'w') as dst:
                     shutil.copyfileobj(src, dst)
     target.replace(feed)
+    # Keep the publisher's coordinate CSV and checksum intact. The supplement
+    # identifies separately surveyed stations by code and name.
+    reference = feed.with_name('gtfs-coordinates.reference.json')
+    manifest = json.loads(reference.read_text())
+    manifest['supplementalStations'] = metadata.get('supplementalStations', {})
+    reference.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 
 
 def apply_stop_time_corrections(feed, changes):

@@ -49,6 +49,9 @@ def classify(db):
     quality = {}
     for code,name,lon,lat in db.execute('SELECT id,name,lon,lat FROM stops'):
         candidates = by_name.get(name)
+        extra = meta.get('supplementalStations', {}).get(code)
+        if extra and extra['name'] == name:
+            candidates = {(extra['lon'], extra['lat'])}
         if not isinstance(lon,(int,float)) or not isinstance(lat,(int,float)):
             status = 'missing'
         elif not candidates:
