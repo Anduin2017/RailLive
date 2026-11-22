@@ -6,6 +6,9 @@ function openRailwayOverlay(map, before, onReady, onError) {
   const tiles = new Map();
   let active = true;
   let fetching = 0;
+  let viewTimer;
+  let pending = [];
+  const refreshInterval = 150;
 
   function tileCorner(x, y, count) {
     const lon = x / count * 360 - 180;
@@ -17,7 +20,9 @@ function openRailwayOverlay(map, before, onReady, onError) {
     const bounds = map.getBounds();
     const corners = [bounds.getNorthWest(),bounds.getNorthEast(),bounds.getSouthWest(),bounds.getSouthEast()]
       .map(p => fromMapCoordinates(p.lng,p.lat));
-    let zoom = Math.min(19, Math.max(2, Math.round(map.getZoom() + 1)));
+    // The camera uses 512 px tiles and the provider uses 256 px tiles.
+    // Request the next level at a whole zoom step, not halfway through it.
+    let zoom = Math.min(19, Math.max(2, Math.floor(map.getZoom() + 1)));
     let left, right, top, bottom, count;
     // At a steep pitch the horizon can span many tiles. Select a coarser
     // source zoom in that case rather than requesting thousands of images.
@@ -36,20 +41,23 @@ function openRailwayOverlay(map, before, onReady, onError) {
       zoom--;
     } while (true);
 
-    const visible = new Map();
+    const visible = [];
+    const {clientWidth: width, clientHeight: height} = map.getCanvas();
     for (let y=top; y<=bottom; y++) {
       for (let x=left; x<=right; x++) {
         const id = 'orm-' + zoom + '-' + x + '-' + y;
         const coordinates = [tileCorner(x,y,count),tileCorner(x+1,y,count),
           tileCorner(x+1,y+1,count),tileCorner(x,y+1,count)];
         const points = coordinates.map(c => map.project(c));
-        const canvas = map.getCanvas();
         if (points.every(p=>p.x<0) || points.every(p=>p.y<0) ||
-            points.every(p=>p.x>canvas.clientWidth) || points.every(p=>p.y>canvas.clientHeight)) continue;
-        visible.set(id,{id, coordinates, url:'https://tiles.openrailwaymap.org/standard/'+zoom+'/'+x+'/'+y+'.png'});
+            points.every(p=>p.x>width) || points.every(p=>p.y>height)) continue;
+        const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+        const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+        const distance = Math.hypot(centerX - width / 2, centerY - height / 2);
+        visible.push({id, coordinates, distance, url:'https://tiles.openrailwaymap.org/standard/'+zoom+'/'+x+'/'+y+'.png'});
       }
     }
-    return visible;
+    return visible.sort((a,b) => a.distance - b.distance);
   }
 
   function remove(tile) {
@@ -87,35 +95,56 @@ function openRailwayOverlay(map, before, onReady, onError) {
   }
 
   function pump() {
-    if (!active || fetching >= 3) return;
-    for (const tile of tiles.values()) {
-      if (!tile.controller) void load(tile);
-      if (fetching >= 3) break;
-    }
+    while (active && fetching < 3 && pending.length) void load(pending.shift());
   }
 
   function refresh() {
+    clearTimeout(viewTimer);
+    viewTimer = undefined;
     const visible = visibleTiles();
+    const visibleIds = new Set(visible.map(tile => tile.id));
     for (const [id,tile] of tiles) {
-      if (!visible.has(id)) {
+      if (!visibleIds.has(id)) {
         tiles.delete(id);
         remove(tile);
       }
     }
-    for (const [id,tile] of visible) if (!tiles.has(id)) tiles.set(id,tile);
+    pending = [];
+    for (const candidate of visible) {
+      let tile = tiles.get(candidate.id);
+      if (!tile) {
+        tile = candidate;
+        tiles.set(tile.id,tile);
+      }
+      if (!tile.controller) pending.push(tile);
+    }
     pump();
+  }
+
+  function scheduleRefresh() {
+    // Keep up with a pan without recomputing and churning the queue every frame.
+    // During a zoom, keep the existing images scaled until the camera settles.
+    if (viewTimer !== undefined || map.isZooming()) return;
+    viewTimer = setTimeout(() => {
+      viewTimer = undefined;
+      if (!map.isZooming()) refresh();
+    }, refreshInterval);
   }
 
   function loaded(event) {
     if (tiles.has(event.sourceId) && event.sourceDataType === 'content') onReady();
   }
 
+  map.on('move',scheduleRefresh);
   map.on('moveend',refresh);
   map.on('resize',refresh);
   map.on('sourcedata',loaded);
   refresh();
   return () => {
     active = false;
+    clearTimeout(viewTimer);
+    pending = [];
+    map.off('move',scheduleRefresh);
     map.off('moveend',refresh);
     map.off('resize',refresh);
     map.off('sourcedata',loaded);

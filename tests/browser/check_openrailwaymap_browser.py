@@ -11,7 +11,7 @@ async def check(ev, wait):
       const original = window.fetch;
       window.fetch = (url, options) => {
         if (!String(url).startsWith('https://tiles.openrailwaymap.org/')) return original(url, options);
-        ormRequests.push([url,options.signal]);
+        ormRequests.push([url,options.signal,map.isMoving()]);
         return new Promise(resolve => ormResponses.push(resolve));
       };
       blankButton.click();
@@ -20,6 +20,15 @@ async def check(ev, wait):
     await ev("ormButton.click()")
     await wait("ormResponses.length > 0")
     assert await ev("ormResponses.length <= 3 && baseMode === 'orm'")
+    await ev("""window.releaseOrmRequests = setInterval(() => {
+        ormResponses.splice(0).forEach(done => done(new Response(null,{status:204})));
+      },20); true;""")
+    await wait("ormRequests.length >= 3 && ormResponses.length === 0")
+    await ev("""window.requestsBeforePan = ormRequests.length;
+      map.panBy([850,0],{duration:1400,easing:t=>t}); true;""")
+    await wait("ormRequests.slice(requestsBeforePan).some(([, ,moving]) => moving)")
+    await wait("!map.isMoving()")
+    await ev("clearInterval(releaseOrmRequests)")
     await ev("blankButton.click(); ormResponses.splice(0).forEach(done=>done(new Response(null,{status:204})))")
     assert await ev("ormRequests.every(([,signal])=>signal.aborted) && !map.getSource('scenery')")
     await ev("ormButton.click()")
