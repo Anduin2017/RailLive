@@ -8,6 +8,7 @@
 | 列车时刻、停站、开行日历及 GTFS 轨迹 | 时刻表来源为 Jeremy Gao（wensimehrp）的 Chinese Railway GTFS，采用 CC BY 4.0。应用从发行数据导入、合并车站、推演轨迹并生成索引和时空片。[原始发行版](https://github.com/wensimehrp/chinese-railway-gtfs/releases/tag/gtfs-20261117-101334) · [随附许可](licenses/GTFS-CC-BY-4.0.txt) |
 | 铁路底图、站卡、线路资料、地图样式、精灵和字形 | 本地工作快照部分取自中国铁路地图，发行包配套线路表另记有 jprailfan.com 来源。当前未确认整套资源的公开再分发授权。数据包单独管理，各项来源和署名应随其保留。[中国铁路地图](https://cnrail.geogv.org/zhcn/) |
 | 地理背景 | 底图标注 © OpenStreetMap contributors。OpenStreetMap 地理数据使用 ODbL，第三方制图和瓦片服务有各自的使用条件。[版权与署名](https://www.openstreetmap.org/copyright) |
+| 可选 OpenRailwayMap 在线图层 | 按当前视野向经典版公共服务请求铁路瓦片。数据 © OpenStreetMap contributors（ODbL），样式 © OpenRailwayMap（CC BY-SA 2.0）。[公共服务使用条款](https://wiki.openstreetmap.org/wiki/OpenRailwayMap/API#Terms_of_use) |
 | 可选卫星影像 | 浏览器在卫星模式下向 EOX 请求 Sentinel-2 cloudless 2016。该年份影像使用 CC BY 4.0，含修改后的 Copernicus Sentinel 数据，影像署名显示在地图上。[EOX 产品与许可](https://cloudless.eox.at/documentation/faq) |
 
 仓库根目录的 MIT 许可适用于本项目原创软件。公开发布快照或其衍生数据库前，请按实际包含的来源核实再分发条件。导出工具适用于迁移已有快照；导出文件夹中的来源说明应一并保留。
