@@ -69,7 +69,7 @@ def repair_overnight_arrivals(db):
     return len(updates)
 
 
-def merge_station_aliases(db):
+def merge_station_aliases(db, source_aliases):
     # The publisher assigns coordinates by name. Several codes sharing those
     # coordinates only count as one physical station with independent evidence.
     from railway_graph import station_views
@@ -95,6 +95,18 @@ def merge_station_aliases(db):
         JOIN groups_with_code g USING(name,lat,lon)
         JOIN unique_source_station u ON u.name=g.name AND u.code=g.station WHERE s.id<>g.station
     """)
+    for alias, station in source_aliases:
+        pair = db.execute("""
+            SELECT a.id FROM stops a JOIN stops s ON a.name=s.name AND a.id<>s.id
+            WHERE a.id=? AND s.id=? AND abs(a.lon-s.lon)<0.000001 AND abs(a.lat-s.lat)<0.000001
+        """, (alias, station)).fetchone()
+        current = db.execute("SELECT station FROM station_aliases WHERE alias=?", (alias,)).fetchone()
+        if not pair or (current and current[0] != station):
+            raise ValueError(f'Conflicting timetable station alias: {alias} to {station}')
+        if not current:
+            db.execute("INSERT INTO station_aliases VALUES (?,?)", (alias, station))
+    if db.execute("SELECT 1 FROM station_aliases a JOIN station_aliases b ON a.station=b.alias").fetchone():
+        raise ValueError('Timetable station alias chains need a single canonical station')
     db.execute("CREATE TABLE grouped_visits(trip TEXT,seq INTEGER,source_code TEXT,PRIMARY KEY(trip,seq))")
     db.execute("""INSERT INTO grouped_visits SELECT trip,seq,station FROM times
                   WHERE station IN (SELECT alias FROM station_aliases)""")
@@ -148,7 +160,8 @@ def main():
             CREATE INDEX line_station_code ON line_stations(code);
             ANALYZE;
         """)
-        merge_station_aliases(db)
+        merge_station_aliases(db, ((r["stop_id"], r["raillive_same_station"])
+                                   for r in rows(archive, "stops.txt") if r.get("raillive_same_station")))
         from shape_excursions import repair_shapes
         print("Corrected within-leg excursions:", repair_shapes(db))
         meta = next(rows(archive, "feed_info.txt"))
