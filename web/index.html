@@ -7,7 +7,7 @@
   <title>中国铁路实况</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./vendor/mapbox-gl.css">
-  <link rel="stylesheet" href="./app.css?v=orm-preview1">
+  <link rel="stylesheet" href="./app.css?v=rail-modes1">
   <link rel="stylesheet" href="./catalog.css?v=metric-help1">
   <!-- static-data -->
   <script defer src="./vendor/mapbox-gl.js"></script>
@@ -19,18 +19,23 @@
   <script defer src="./live.js?v=valid-arrivals1"></script>
   <script defer src="./station-board.js?v=valid-arrivals1"></script>
   <script defer src="./station-symbols.js?v=platform-scale2"></script>
-  <script defer src="./openrailwaymap.js"></script>
-  <script defer src="./app.js?v=orm-preview1"></script>
+  <script defer src="./openrailwaymap.js?v=pan1"></script>
+  <script defer src="./app.js?v=rail-modes1"></script>
   <script defer src="./catalog.js?v=nov25-classes1"></script>
 </head>
 <body>
   <div id="map" aria-label="铁路地图"></div>
   <div class="basemap-control">
     <div class="basemap-switcher" role="group" aria-label="地图视图">
-      <button id="rail-basemap" type="button" aria-pressed="true" disabled>地图</button>
+      <button id="rail-basemap" type="button" aria-pressed="true" aria-controls="rail-basemap-options" disabled>铁路</button>
       <button id="satellite-basemap" type="button" aria-pressed="false" disabled>卫星</button>
       <button id="blank-basemap" type="button" aria-pressed="false" disabled>空白</button>
-      <button id="orm-basemap" type="button" aria-pressed="false" disabled>OpenRailwayMap</button>
+    </div>
+    <div id="rail-basemap-options">
+      <div class="basemap-switcher" role="group" aria-label="铁路底图">
+        <button id="fast-basemap" type="button" aria-pressed="true" title="基础时刻表和轨迹来自 Jeremy Gao 的 Chinese Railway GTFS 。" disabled>快速</button>
+        <button id="orm-basemap" type="button" aria-pressed="false" title="数据来自OpenRailwayMap" disabled>精准</button>
+      </div>
     </div>
     <div id="orm-credit" hidden>数据 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · 样式 <a href="https://www.openrailwaymap.org/" target="_blank" rel="noopener">OpenRailwayMap</a> (<a href="https://creativecommons.org/licenses/by-sa/2.0/" target="_blank" rel="noopener">CC BY-SA 2.0</a>)</div>
     <div id="basemap-status" role="status" hidden></div>

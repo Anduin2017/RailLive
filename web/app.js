@@ -490,6 +490,7 @@ let baseMode='map';
 try { if (localStorage.getItem(blankPreference)==='true') baseMode='blank'; } catch {}
 const railButton = document.querySelector('#rail-basemap');
 const satelliteButton = document.querySelector('#satellite-basemap');
+const fastButton = document.querySelector('#fast-basemap');
 const ormButton = document.querySelector('#orm-basemap');
 const blankButton = document.querySelector('#blank-basemap');
 
@@ -497,6 +498,7 @@ function setupBasemaps(layers, scenerySource) {
   const status = document.querySelector('#basemap-status');
   const satelliteId = 'eox-sentinel-satellite';
   const scenery = layers.filter(layer=>layer.source==='scenery');
+  const railOptions = document.querySelector('#rail-basemap-options');
   const credit = document.querySelector('#orm-credit');
   const replacedTracks = layers.filter(layer => layer.source === 'rail-detail' ||
     ['rail','platform','subway','railcluster'].includes(layer['source-layer']));
@@ -507,7 +509,10 @@ function setupBasemaps(layers, scenerySource) {
   let showingImagery = false;
 
   function syncButtons() {
-    for (const [mode,button] of [['map',railButton],['satellite',satelliteButton],['blank',blankButton],['orm',ormButton]])
+    const railwaySelected = baseMode==='map' || baseMode==='orm';
+    railButton.setAttribute('aria-pressed',railwaySelected);
+    railOptions.hidden = !railwaySelected;
+    for (const [mode,button] of [['map',fastButton],['satellite',satelliteButton],['blank',blankButton],['orm',ormButton]])
       button.setAttribute('aria-pressed',mode===baseMode);
   }
 
@@ -583,11 +588,10 @@ function setupBasemaps(layers, scenerySource) {
   }
 
   function showOpenRailwayMap() {
-    if (baseMode==='orm') return;
+    if (baseMode!=='map') return;
     if (ormLimited) { setStatus('OpenRailwayMap 已限流，请稍后再试。'); return; }
     if (!navigator.onLine) { setStatus('OpenRailwayMap 需要联网。'); return; }
-    if (baseMode==='satellite') showOffline(fallbackMode);
-    fallbackMode=baseMode;
+    fallbackMode='map';
     baseMode='orm';
     syncButtons();
     showScenery('map');
@@ -638,11 +642,14 @@ function setupBasemaps(layers, scenerySource) {
   window.addEventListener('offline', () => {
     if (baseMode==='satellite' || baseMode==='orm') showOffline(fallbackMode,'网络已断开，已恢复原底图。');
   });
-  railButton.onclick = () => showOffline('map');
+  railButton.onclick = () => {
+    if (baseMode!=='map' && baseMode!=='orm') showOffline('map');
+  };
+  fastButton.onclick = () => showOffline('map');
   satelliteButton.onclick = showSatellite;
   ormButton.onclick = showOpenRailwayMap;
   blankButton.onclick = () => showOffline('blank');
-  railButton.disabled = satelliteButton.disabled = ormButton.disabled = blankButton.disabled = false;
+  railButton.disabled = satelliteButton.disabled = fastButton.disabled = ormButton.disabled = blankButton.disabled = false;
   showOffline(baseMode);
 }
 
@@ -1456,7 +1463,10 @@ async function start() {
         Math.abs(view[1])<=80 && view[2]>=2 && view[2]<=15) {
       map.jumpTo({center:toMapCoordinates(view),zoom:view[2]});
     } else if (!selectedStation && !route.features.length) fit(national);
-    if (params.get('basemap')==='openrailwaymap') ormButton.click();
+    if (params.get('basemap')==='openrailwaymap') {
+      railButton.click();
+      ormButton.click();
+    }
     liveTimeline.refreshPausedMap();
   });
   let dragged = false;

@@ -7,6 +7,7 @@ body{margin:0}
 .basemap-switcher button{padding:4px 8px;border-color:transparent;background:none;font-size:13px}
 .basemap-switcher button[aria-pressed=true]{background:#236553;color:#fff}
 .basemap-switcher button:disabled{cursor:default;opacity:.65}
+#rail-basemap-options{margin-top:4px}
 #basemap-status{margin-top:5px;padding:5px 7px;border-radius:6px;background:#fdfdf9;color:#46584e;font-size:12px;text-align:left}
 .map-panel-tools{position:fixed;top:12px;left:12px;z-index:5;display:flex;gap:4px;padding:4px;border:1px solid #c9d3c8;border-radius:11px;background:#fdfdf9;box-shadow:0 3px 13px #24362a25}
 .map-panel-tools button{display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;background:transparent;color:#235c4d}
@@ -299,9 +300,7 @@ td button{padding:1px 3px;max-width:100%;text-align:left}
 #orm-credit a{color:#235c4d}
 @media(max-width:490px){
   .basemap-control{top:6px;right:46px;z-index:4}
-  .basemap-switcher{display:inline-grid;grid-template-columns:repeat(3,1fr)}
   .basemap-switcher button{padding:2px 5px}
-  #orm-basemap{grid-column:1/-1}
   #orm-credit{position:fixed;right:34px;bottom:2px;max-width:calc(100vw - 104px);margin:0;padding:1px 4px;line-height:13px}
   #basemap-status{max-width:175px}
 }

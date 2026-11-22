@@ -16,10 +16,17 @@ async def check(ev, wait):
       };
       blankButton.click();
       map.jumpTo({center:toMapCoordinates([120.795,31.066]),zoom:14}); true;""")
-    assert await ev("ormRequests.length === 0")
+    assert await ev("ormRequests.length === 0 && document.querySelector('#rail-basemap-options').hidden")
+    await ev("railButton.click()")
+    assert await ev("""ormRequests.length === 0 &&
+      !document.querySelector('#rail-basemap-options').hidden &&
+      railButton.getAttribute('aria-pressed') === 'true' &&
+      fastButton.getAttribute('aria-pressed') === 'true'""")
     await ev("ormButton.click()")
     await wait("ormResponses.length > 0")
-    assert await ev("ormResponses.length <= 3 && baseMode === 'orm'")
+    assert await ev("""ormResponses.length <= 3 && baseMode === 'orm' &&
+      railButton.getAttribute('aria-pressed') === 'true' &&
+      ormButton.getAttribute('aria-pressed') === 'true'""")
     await ev("""window.releaseOrmRequests = setInterval(() => {
         ormResponses.splice(0).forEach(done => done(new Response(null,{status:204})));
       },20); true;""")
@@ -29,19 +36,20 @@ async def check(ev, wait):
     await wait("ormRequests.slice(requestsBeforePan).some(([, ,moving]) => moving)")
     await wait("!map.isMoving()")
     await ev("clearInterval(releaseOrmRequests)")
-    await ev("blankButton.click(); ormResponses.splice(0).forEach(done=>done(new Response(null,{status:204})))")
-    assert await ev("ormRequests.every(([,signal])=>signal.aborted) && !map.getSource('scenery')")
+    await ev("fastButton.click(); ormResponses.splice(0).forEach(done=>done(new Response(null,{status:204})))")
+    assert await ev("""ormRequests.every(([,signal])=>signal.aborted) && baseMode === 'map' &&
+      fastButton.getAttribute('aria-pressed') === 'true'""")
     await ev("ormButton.click()")
     await wait("ormResponses.length > 0")
     await ev("ormResponses.shift()(new Response(null,{status:429}))")
-    await wait("baseMode === 'blank' && document.querySelector('#orm-credit').hidden")
+    await wait("baseMode === 'map' && document.querySelector('#orm-credit').hidden")
     assert await ev("""(() => {
       const count = ormRequests.length;
       ormButton.click();
-      return ormRequests.length === count && baseMode === 'blank' &&
+      return ormRequests.length === count && fastButton.getAttribute('aria-pressed') === 'true' &&
         document.querySelector('#basemap-status').textContent.includes('限流');
     })()""")
-    print('Online tiles loaded only on selection, cancellation restored blank mode and a 429 stopped new requests.')
+    print('Precise mode loaded tiles during pans and returned to Fast on cancellation or HTTP 429.')
 
 
 if __name__ == '__main__':
