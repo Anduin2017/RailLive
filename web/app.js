@@ -1311,6 +1311,10 @@ async function start() {
   const d = info.feed_version;
   document.querySelector('#snapshot').textContent =
     `${info.preview ? "阶段预览 · " : ""}${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6)} 快照 · ${info.numbers.toLocaleString()} 个车次号 · ${info.stops.toLocaleString()} 座车站`;
+  if (info.raillive_target_date) {
+    document.querySelector('#snapshot').append(
+      ` · ${info.raillive_target_date} 计划始发 ${Number(info.raillive_target_departures).toLocaleString()} 趟`);
+  }
   if (!mapboxgl.supported()) {
     el('p', '当前浏览器无法使用 WebGL，时刻表仍可搜索。', panel);
     return;

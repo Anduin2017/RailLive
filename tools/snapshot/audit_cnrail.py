@@ -9,7 +9,7 @@ import sqlite3
 
 from collect_cnrail import CACHE, ID, references, tile_ids
 from gtfs_coordinates import classify
-from import_gtfs import insert, repair_overnight_arrivals
+from import_gtfs import insert, repair_overnight_arrivals, rows as gtfs_rows
 from railway_graph import ROOT, SNAPSHOT, snapshot_hash, audited_files
 from server import GRAPH, DB, station_details, line_details, Handler, RAIL_SELECTION, query_catalog
 
@@ -113,13 +113,23 @@ def main():
                 issues['timetableWithoutSourceStation'].append([station,name])
         aliases = dict(db.execute("SELECT alias,station FROM station_aliases"))
         source_codes = {(trip,seq):code for trip,seq,code in db.execute("SELECT * FROM grouped_visits")}
-        for alias,target in aliases.items():
-            assert target in GRAPH.kid_for,(alias,target)
-            kid = GRAPH.kid_for[target]
-            assert any(v.get("tele_code")==target for v in GRAPH.views[kid]),(alias,target,kid)
         times = {(r["trip"],r["seq"]):(r["station"],r["arrival"],r["departure"])
                  for r in db.execute("SELECT * FROM times")}
         with zipfile.ZipFile(ROOT/'data/output_gtfs.zip') as archive, closing(sqlite3.connect(':memory:')) as expected:
+            stops = {s['stop_id']: s for s in gtfs_rows(archive, 'stops.txt')}
+            declared = {code: s['raillive_same_station'] for code, s in stops.items()
+                        if s.get('raillive_same_station')}
+            assert declared.items() <= aliases.items()
+            for alias, target in aliases.items():
+                if alias in declared:
+                    a, b = stops[alias], stops[target]
+                    assert a['stop_name'] == b['stop_name'] and all(
+                        abs(float(a[k]) - float(b[k])) < 1e-6 for k in ('stop_lon', 'stop_lat')
+                    ), (alias, target)
+                else:
+                    assert target in GRAPH.kid_for, (alias, target)
+                    kid = GRAPH.kid_for[target]
+                    assert any(v.get('tele_code') == target for v in GRAPH.views[kid]), (alias, target, kid)
             schema = 'CREATE TABLE times(trip TEXT, station TEXT, seq INTEGER, arrival TEXT, departure TEXT)'
             expected.execute(schema)
             insert(expected, archive, 'stop_times', ['trip_id', 'stop_id', 'stop_sequence',

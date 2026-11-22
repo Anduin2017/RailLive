@@ -19,6 +19,18 @@ from line_live import indexed_profile
 
 
 class SnapshotRegression(unittest.TestCase):
+    def test_wuhan_loop_preserves_the_ticketing_endpoint(self):
+        with closing(sqlite3.connect(DB)) as db:
+            db.row_factory = sqlite3.Row
+            calls = db.execute("""
+                SELECT station, COALESCE(g.source_code, station), arrival
+                FROM trips t JOIN dates d ON d.service=t.service
+                JOIN times v ON v.trip=t.id LEFT JOIN grouped_visits g USING(trip, seq)
+                WHERE t.number='Y720' AND d.date='20261125' AND d.kind=1 ORDER BY seq
+            """).fetchall()
+            self.assertEqual([row[0] for row in calls], ['LFN', 'WCN', 'HKN', 'LFN'])
+            self.assertEqual(tuple(calls[-1]), ('LFN', 'NDI', '17:23:00'))
+
     def test_map_station_with_reused_telegraph(self):
         with closing(sqlite3.connect(DB)) as db:
             db.row_factory = sqlite3.Row
