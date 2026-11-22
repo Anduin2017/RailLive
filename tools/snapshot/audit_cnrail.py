@@ -9,7 +9,7 @@ import sqlite3
 
 from collect_cnrail import CACHE, ID, references, tile_ids
 from gtfs_coordinates import classify
-from import_gtfs import insert, repair_overnight_arrivals, rows
+from import_gtfs import insert, repair_overnight_arrivals, rows as gtfs_rows
 from railway_graph import ROOT, SNAPSHOT, snapshot_hash, audited_files
 from server import GRAPH, DB, station_details, line_details, Handler, RAIL_SELECTION, query_catalog
 
@@ -116,7 +116,7 @@ def main():
         times = {(r["trip"],r["seq"]):(r["station"],r["arrival"],r["departure"])
                  for r in db.execute("SELECT * FROM times")}
         with zipfile.ZipFile(ROOT/'data/output_gtfs.zip') as archive, closing(sqlite3.connect(':memory:')) as expected:
-            stops = {s['stop_id']: s for s in rows(archive, 'stops.txt')}
+            stops = {s['stop_id']: s for s in gtfs_rows(archive, 'stops.txt')}
             declared = {code: s['raillive_same_station'] for code, s in stops.items()
                         if s.get('raillive_same_station')}
             assert declared.items() <= aliases.items()
