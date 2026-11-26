@@ -414,6 +414,103 @@ class TileRoutes:
         return False
 
 
+class TimetableCorridors:
+    """Check major fallback detours against independent station or service sequences."""
+    def __init__(self, runs, ordinary, calendar, tiles, corridors):
+        self.tiles=tiles
+        self.corridors=corridors
+        self.calendar=calendar
+        self.calls={}
+        self.at=defaultdict(set)
+        for trip in ordinary:
+            _,service,_,calls=runs[trip]
+            stations=tuple(c[0] for c in calls)
+            self.calls[trip]=(service,stations)
+            for station in stations:
+                self.at[station].add(trip)
+
+    @lru_cache(maxsize=8192)
+    def witnesses(self,s,n,service):
+        sequences=set()
+        for trip in self.at[s] & self.at[n]:
+            peer,stops=self.calls[trip]
+            if self.calendar[peer].isdisjoint(self.calendar[service]): continue
+            if stops.count(s)!=1 or stops.count(n)!=1: continue
+            a,b=stops.index(s),stops.index(n)
+            middle=stops[min(a,b)+1:max(a,b)]
+            if middle: sequences.add(middle if a<b else middle[::-1])
+        return sequences
+
+    def station_evidence(self,sequences,path):
+        axis=cumulative(path)
+        @lru_cache(maxsize=None)
+        def passage(code):
+            mapped,gtfs=self.tiles.locations.get(code,(None,None))
+            if not (mapped or gtfs): return None
+            pos=geographic(mapped) if mapped else gtfs
+            near=[]
+            for i,(a,b) in enumerate(zip(path,path[1:])):
+                if pos[1]<min(a[1],b[1])-.05 or pos[1]>max(a[1],b[1])+.05: continue
+                fraction,q=project_segment(pos,a,b)
+                gap=metres(pos,q)
+                if gap<=5000:
+                    near.append((gap,axis[i]+fraction*(axis[i+1]-axis[i])))
+            return min(near,default=None)
+        supported=False
+        conflict=False
+        for stops in sequences:
+            hits=[passage(code) for code in stops]
+            # Allow a nearby hub station on a different approach, but do not
+            # discard an inconvenient stop on a genuinely different corridor.
+            if any(hit is None for hit in hits) or any(
+                    left[1]>=right[1] for left,right in zip(hits,hits[1:])):
+                conflict=True
+                continue
+            close=[at for gap,at in hits if gap<=750]
+            if (len(close)>=2 and len(stops)-len(close)<=1
+                    and close[-1]-close[0]>=axis[-1]*.20):
+                supported=True
+        return supported,conflict
+
+    @lru_cache(maxsize=4096)
+    def candidate(self,s,n,start,end):
+        common=tuple(sorted(self.tiles.visits[s].keys() & self.tiles.visits[n].keys()))
+        _,path=self.corridors.station_route(s,n,start,end,False,common)
+        if not path or self.corridors.conventional_coverage(path)<.85: return None
+        ds=cumulative(path)
+        if early_station_pass(path,ds,end) is not None: return None
+        line_match=False
+        for line in common:
+            calls=self.tiles.lines[line]
+            a,b=(calls[self.tiles.visits[code][line]][1] for code in (s,n))
+            if (a is not None and b is not None and a!=b
+                    and abs(ds[-1]-1000*abs(a-b))<=max(3500,.12*ds[-1])
+                    and self.tiles.fits_line(line,s,n,path,check_mileage=False)):
+                line_match=True
+                break
+        from corridor_paths import turn_exceeds
+        axis=ds,path
+        uncertain=any(turn_exceeds(point(axis,m-350),point(axis,m),point(axis,m+350),-.5)
+                      for m in range(350,int(ds[-1])-350,100))
+        return path,ds[-1],line_match,uncertain
+
+    def review(self,s,n,path,duration,service,donors,group):
+        length=cumulative(path)[-1]
+        if length<40000 or length<1.65*metres(path[0],path[-1]): return None
+        evidence=self.candidate(s,n,path[0],path[-1])
+        if not evidence: return None
+        candidate,alternative_length,line_match,uncertain=evidence
+        if length-alternative_length<max(20000,.30*length) or alternative_length*3.6>160*(duration-min(60,duration/4)): return None
+        sequences=self.witnesses(s,n,service)
+        supports_candidate,conflict=self.station_evidence(sequences,candidate)
+        if conflict or not (line_match or supports_candidate): return None
+        supports_original,_=self.station_evidence(sequences,path)
+        if supports_original: return None
+        donor=donors.route(s,n,group,path[0],path[-1])
+        if donor and not same_corridor(candidate,donor): return None
+        return ('径路不确定' if uncertain else '底图接轨推测'),candidate
+
+
 class DonorRoutes:
     """Use original timetable shapes serving both stations, including return services."""
     def __init__(self,runs,inherited):
@@ -452,7 +549,7 @@ class DonorRoutes:
         return [start,point(axis,a),*(interior if a<b else reversed(interior)),point(axis,b),end]
 
 
-def save_fallbacks(out,runs,locations):
+def save_fallbacks(out,runs,locations,calendar):
     from line_live import WINDOW,indexed_profile
     from train_relations import DAY,shape_path,inferred_route
     from corridor_paths import CorridorNetwork
@@ -468,7 +565,8 @@ def save_fallbacks(out,runs,locations):
     with closing(sqlite3.connect(TIMETABLE)) as db:
         ordinary=conventional_trips(db)
         donors=DonorRoutes(runs,inherited_shapes(db))
-    for trip,(number,_,shape,calls) in runs.items():
+    witnesses=TimetableCorridors(runs,ordinary,calendar,tiles,corridors)
+    for trip,(number,service,shape,calls) in runs.items():
         curve,times,anchors=indexed_profile(trip) if shape else ([],[],[])
         legs=inferred_route(trip)[1] if shape.startswith('inferred:') else None
         for seq,((s,_,dep),(n,arr,next_dep)) in enumerate(zip(calls,calls[1:])):
@@ -576,6 +674,10 @@ def save_fallbacks(out,runs,locations):
                     candidate=tiles.compare_fallback(corridors,donors,s,n,start,end,path,arr-dep,group)
                 if candidate:
                     kind,path=candidate
+            if trip in ordinary and kind in {'路网推测','径路不确定'}:
+                group=number[0] if number[0].isalpha() else '#'
+                reviewed=witnesses.review(s,n,path,arr-dep,service,donors,group)
+                if reviewed: kind,path=reviewed
             indexed=[]
             distance=0.
             for p in path:
