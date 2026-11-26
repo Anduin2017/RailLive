@@ -33,6 +33,42 @@ class RouteExcursionTest(unittest.TestCase):
             km = (override['path'][-1][0] if override else anchors[seq+1]-anchors[seq])/1000
             self.assertTrue(lo<km<hi,(number,km))
 
+    def test_conventional_overnight_corridors(self):
+        from region_live import station_locations
+        from departure_paths import geographic
+        locations=station_locations()
+        cases=[
+            ('490000V39800',18,58,66,['HJF'],'底图接轨推测'),
+            ('410000V44800',0,430,470,['OLY','XIF'],'底图接轨推测'),
+            ('570000Z53600',10,430,470,['XIF','OLY'],'底图接轨推测'),
+            ('430000V76800',8,450,500,['SZN','ALN'],'径路不确定'),
+            ('670000V76700',13,450,500,['ALN','SZN'],'径路不确定'),
+        ]
+        for trip,seq,lo,hi,checkpoints,kind in cases:
+            with self.subTest(trip=trip):
+                leg=next(row for row in trip_display(trip) if row['seq']==seq)
+                self.assertEqual(leg['kind'],kind)
+                distances=[row[0] for row in leg['path']]
+                path=[row[1:] for row in leg['path']]
+                self.assertTrue(lo*1000<distances[-1]<hi*1000)
+                previous=0
+                for code in checkpoints:
+                    mapped,gtfs=locations[code]
+                    position=geographic(mapped) if mapped else gtfs
+                    visits=[at for _,at,_,_ in station_hits(position,path,distances,750) if at>previous]
+                    self.assertTrue(visits,code)
+                    previous=min(visits)
+
+    def test_conflicting_peer_corridors(self):
+        from departure_paths import TimetableCorridors
+        from types import SimpleNamespace
+        path=[(110+i*.1,30.) for i in range(11)]
+        locations={'a':(None,path[2]),'b':(None,path[8]),'c':(None,(110.5,30.4))}
+        routes=TimetableCorridors({},set(),{},SimpleNamespace(locations=locations),None)
+        self.assertEqual(routes.station_evidence([('a','b')],path),(True,False))
+        self.assertEqual(routes.station_evidence([('a','b'),('c',)],path),(True,True))
+        self.assertEqual(routes.station_evidence([('b','a')],path),(False,True))
+
     def test_nanjing_to_hefei_fallback_uses_direct_corridor(self):
         trip = '55000G726860'
         self.assertEqual([s for s, _, _ in timetable()[0][trip][3][5:7]], ['NKH', 'HFH'])

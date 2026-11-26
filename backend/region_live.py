@@ -44,7 +44,7 @@ def verify():
 def build():
     tmp = INDEX.with_suffix('.building')
     tmp.unlink(missing_ok=True)
-    runs, _, _ = timetable()
+    runs, calendar, _ = timetable()
     with closing(sqlite3.connect(TRACKS)) as db, closing(sqlite3.connect(tmp)) as out:
         out.execute('CREATE TABLE windows(bucket INTEGER, trip TEXT, offset INTEGER, west REAL, south REAL, east REAL, north REAL)')
         for trip, blob in db.execute('SELECT trip,knots FROM profiles'):
@@ -61,7 +61,7 @@ def build():
                     rows.append((t%DAY,trip,t//DAY,min(xs),min(ys),max(xs),max(ys)))
             out.executemany('INSERT INTO windows VALUES(?,?,?,?,?,?,?)', rows)
         out.execute('CREATE INDEX by_window ON windows(bucket,west)')
-        save_fallbacks(out,runs,station_locations())
+        save_fallbacks(out,runs,station_locations(),calendar)
         save_trip_metrics(out,db,runs)
         out.execute('CREATE TABLE meta(signature TEXT)')
         out.execute('INSERT INTO meta VALUES(?)',db.execute('SELECT signature FROM meta').fetchone())

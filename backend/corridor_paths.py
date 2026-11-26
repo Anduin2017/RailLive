@@ -126,6 +126,19 @@ class CorridorNetwork:
         origin,destination,share=self.station_line_evidence(path,origin_lines,destination_lines)
         return origin and destination and share>=.85
 
+    def conventional_coverage(self,path):
+        """Fraction on explicitly named conventional edges; reject exclusive HSR."""
+        supported=0.
+        for a,b in zip(path,path[1:]):
+            tags=self.tags.get(tuple(sorted((a,b))),())
+            if not tags: continue
+            if all(kind.startswith('HSR') or '客专' in name or '城际' in name for name,kind in tags):
+                return 0.
+            if any(name and kind in {'R','R2','RR','RR2'} for name,kind in tags):
+                supported+=metres(a,b)
+        length=cumulative(path)[-1]
+        return supported/length if length else 0.
+
     def connected_station_route(self,path,origin_lines,destination_lines):
         """Check a cross-line route on original named track, without inferred joins."""
         route=[p for i,p in enumerate(path) if i==0 or p!=path[i-1]]
